@@ -1,10 +1,35 @@
 // Hossein Moein
-// August 21, 2007
+// August 9, 2023
+/*
+Copyright (c) 2023-2028, Hossein Moein
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+* Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+* Neither the name of Hossein Moein and/or the ThreadPool nor the
+  names of its contributors may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL Hossein Moein BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 
 #include <ThreadPool/ThreadPool.h>
 
 #include <stdexcept>
-
 #include <stdlib.h>
 
 // ----------------------------------------------------------------------------
@@ -31,9 +56,7 @@ ThreadPool (size_type ini_thr_num, bool timeout_flag, time_type timeout_time)
 template <typename T, typename A>
 ThreadPool<T, A>::~ThreadPool ()  {
 
-    if (! shutdown_flag_.load(std::memory_order_relaxed))
-        shutdown ();
-
+    shutdown ();
     if (capacity_threads_.load(std::memory_order_relaxed) != 0)  {
         std::unique_lock<std::mutex>    guard (state_);
 
@@ -71,38 +94,19 @@ template <typename T, typename A>
 bool ThreadPool<T, A>::
 dispatch (class_type *class_ptr,
           thrpool_routine routine,
-          arg_type *arg,
           bool immediately) noexcept  {
-
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
         // throw Exception ("ThreadPool::dispatch(): "
         //                  "The thread pool is shutdown.");
         return (false);
 
-    if (timeout_flag_.load(std::memory_order_relaxed))
+    if (timeout_flag_)
         terminate_timed_outs_ ();
 
-    if (arg)  {
-        const WorkUnit  wu(_client_service_,
-                           this,
-                           class_ptr,
-                           routine,
-                           nullptr,
-                           arg);
+    const WorkUnit  wu (_client_service_, this, class_ptr, routine);
 
-        the_queue_.push (wu);
-    }
-    else  {
-        const WorkUnit  wu(_client_service_np_,
-                           this,
-                           class_ptr,
-                           nullptr,
-                           routine,
-                           nullptr);
-
-        the_queue_.push (wu);
-    }
+    the_queue_.push (wu);
 
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
         add_thread (1);
@@ -126,13 +130,14 @@ bool ThreadPool<T, A>::add_thread (size_type thr_num)  {
 
         if (thrs_to_shut >=
                 capacity_threads_.load(std::memory_order_relaxed))  {
-            String1K    err;
+            char    err[1024];
 
-            err.printf ("ThreadPool::add_thread(): Cannot subtract "
-                        "'%d' threads from the pool with capacity '%d'",
-                        thrs_to_shut,
-                        capacity_threads_.load(std::memory_order_relaxed));
-            throw std::runtime_error (err.c_str ());
+            ::snprintf(err, 1023,
+                       "ThreadPool::add_thread(): Cannot subtract "
+                       "'%d' threads from the pool with capacity '%d'",
+                       thrs_to_shut,
+                       capacity_threads_.load(std::memory_order_relaxed));
+            throw std::runtime_error (err);
         }
 
         for (size_type i = 0; i < thrs_to_shut; ++i)  {
@@ -159,12 +164,17 @@ template <typename T, typename A>
 bool ThreadPool<T, A>::shutdown () noexcept  {
 
     const guard_type    guard (state_);
+    bool                expected = false;
 
-    if (! shutdown_flag_.load(std::memory_order_relaxed))  {
+    if (shutdown_flag_.compare_exchange_strong(expected, true,
+                                               std::memory_order_relaxed,
+                                               std::memory_order_relaxed))  {
         shutdown_flag_.store(true, std::memory_order_relaxed);
 
-        for (size_type i = 0;
-             i < capacity_threads_.load(std::memory_order_relaxed); ++i)  {
+        const size_type capacity =
+            capacity_threads_.load(std::memory_order_relaxed);
+
+        for (size_type i = 0; i < capacity; ++i)  {
             WorkUnit    wu;
 
             wu.work_type = _terminate_;
@@ -208,12 +218,6 @@ bool ThreadPool<T, A>::thread_routine_ () noexcept  {
             if (wu.work_type == _client_service_)  {
                 thrpool_routine rt = wu.the_routine;
 
-                (cp->*rt) (*(wu.arg_ptr));
-                delete wu.arg_ptr;
-            }
-            else if (wu.work_type == _client_service_np_)  {
-                thrpool_routine_np  rt = wu.the_routine_np;
-
                 (cp->*rt) ();
             }
 
@@ -222,11 +226,9 @@ bool ThreadPool<T, A>::thread_routine_ () noexcept  {
         }
     }
 
-    if (--capacity_threads_ == 0)  {
-        const guard_type    guard (state_);
-
+    --capacity_threads_;
+    if (capacity_threads_.load(std::memory_order_relaxed) == 0)
         destructor_cvx_.notify_one ();
-	}
 
     return (true);
 }

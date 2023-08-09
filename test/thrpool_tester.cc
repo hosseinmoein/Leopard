@@ -1,7 +1,7 @@
 // Hossein Moein
-// August 21, 2007
+// August 9, 2023
 
-#include <ThreadPool/SharedQueue.h>
+#include <ThreadPool/ThreadPool.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,7 +25,7 @@ class   MyClass  {
 
     public:
 
-        bool routine_np ()  {
+        bool routine ()  {
 
             struct timespec rqt;
 
@@ -33,26 +33,7 @@ class   MyClass  {
             rqt.tv_nsec = 0;
             ::nanosleep (&rqt, nullptr);
 
-            char    str[1024];
-
-            ::printf (str, "From routine_np()\n");
-            std::cout << str ();
-
-            return (true);
-        }
-
-        bool routine (int &the_i)  {
-
-            struct timespec rqt;
-
-            rqt.tv_sec = 1;
-            rqt.tv_nsec = 0;
-            ::nanosleep (&rqt, nullptr);
-
-            char    str[1024];
-
-            ::printf (str, "From routine(): The integer is: %d\n", the_i);
-            std::cout << str;
+            std::cout << "From routine()\n";
 
             return (true);
         }
@@ -64,7 +45,9 @@ using ThreadPoolType = ThreadPool<MyClass, int>;
 
 //-----------------------------------------------------------------------------
 
-int main (int argCnt, char *argVctr [])  {
+MyClass my_obj;
+
+int main (int, char *[])  {
 
     ThreadPoolType      thr_pool (THREAD_COUNT, true, 12);
 
@@ -99,26 +82,17 @@ int main (int argCnt, char *argVctr [])  {
               << " -- available: " << thr_pool.available_threads ()
               << std::endl;
 
-    MyClass my_obj;
-
     for (size_t i = 0; i < THREAD_COUNT * 100; ++i)  {
-        if (i > 250)  {
-            thr_pool.dispatch (&my_obj, &MyClass::routine_np,
-                               i > THREAD_COUNT ? true : false);
-        }
-        else  {
-            int *the_int = new int (i);
-
-            thr_pool.dispatch (&my_obj, &MyClass::routine, the_int,
-                               i > THREAD_COUNT ? true : false);
-        }
+        thr_pool.dispatch (&my_obj, &MyClass::routine,
+                           (! (i % 10)) ? true : false);
     }
-//    ::nanosleep (&rqt, nullptr);
+    ::nanosleep (&rqt, nullptr);
 
     char    str[1024];
 
-    ::printf (str, "After Dispatching threads capacity: %d -- available: %d\n",
-              thr_pool.capacity_threads (), thr_pool.available_threads ());
+    ::snprintf (str, 1023,
+                "After Dispatching threads capacity: %d -- available: %d\n",
+                thr_pool.capacity_threads (), thr_pool.available_threads ());
     std::cout << str;
 
     return (EXIT_SUCCESS);
