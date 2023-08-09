@@ -41,7 +41,7 @@ class   MyClass  {
 
 //-----------------------------------------------------------------------------
 
-using ThreadPoolType = ThreadPool<MyClass, int>;
+using ThreadPoolType = ThreadPool<MyClass>;
 
 //-----------------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ MyClass my_obj;
 
 int main (int, char *[])  {
 
-    ThreadPoolType      thr_pool (THREAD_COUNT, true, 12);
+    ThreadPoolType  thr_pool (THREAD_COUNT, true, 12);
 
     thr_pool.add_thread (30);
 

@@ -37,8 +37,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmthrp
 {
 
-template <typename T, typename A>
-ThreadPool<T, A>::
+template <typename T>
+ThreadPool<T>::
 ThreadPool (size_type ini_thr_num, bool timeout_flag, time_type timeout_time)
     : initial_thr_num_ (ini_thr_num >= 0 ? ini_thr_num : 0),
       timeout_time_ (timeout_time),
@@ -53,8 +53,8 @@ ThreadPool (size_type ini_thr_num, bool timeout_flag, time_type timeout_time)
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename A>
-ThreadPool<T, A>::~ThreadPool ()  {
+template <typename T>
+ThreadPool<T>::~ThreadPool ()  {
 
     shutdown ();
     if (capacity_threads_.load(std::memory_order_relaxed) != 0)  {
@@ -68,8 +68,8 @@ ThreadPool<T, A>::~ThreadPool ()  {
 
 // NOTE: This routine is _not_ thread safe.
 //
-template <typename T, typename A>
-inline void ThreadPool<T, A>::
+template <typename T>
+inline void ThreadPool<T>::
 terminate_timed_outs_ () noexcept  {
 
     const size_type thrs_to_shut =
@@ -90,8 +90,8 @@ terminate_timed_outs_ () noexcept  {
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename A>
-bool ThreadPool<T, A>::
+template <typename T>
+bool ThreadPool<T>::
 dispatch (class_type *class_ptr,
           thrpool_routine routine,
           bool immediately) noexcept  {
@@ -116,8 +116,8 @@ dispatch (class_type *class_ptr,
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename A>
-bool ThreadPool<T, A>::add_thread (size_type thr_num)  {
+template <typename T>
+bool ThreadPool<T>::add_thread (size_type thr_num)  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
         throw std::runtime_error ("ThreadPool::add_thread(): "
@@ -160,8 +160,8 @@ bool ThreadPool<T, A>::add_thread (size_type thr_num)  {
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename A>
-bool ThreadPool<T, A>::shutdown () noexcept  {
+template <typename T>
+bool ThreadPool<T>::shutdown () noexcept  {
 
     const guard_type    guard (state_);
     bool                expected = false;
@@ -187,8 +187,8 @@ bool ThreadPool<T, A>::shutdown () noexcept  {
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename A>
-bool ThreadPool<T, A>::thread_routine_ () noexcept  {
+template <typename T>
+bool ThreadPool<T>::thread_routine_ () noexcept  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
         return (true);

@@ -27,3 +27,41 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <img src="docs/Leopard.jpg" alt="ThreadPool Leopard" width="400" longdesc="https://htmlpreview.github.io/?https://github.com/hosseinmoein/ThreadPool/blob/master/README.md"/>
 
 This is a light-weight C++ Thread Pool that allows object member functions to run on threads. 
+
+```cpp
+struct   MyClass  {
+    bool routine ()  {
+        struct timespec rqt;
+
+        rqt.tv_sec = 1;
+        rqt.tv_nsec = 0;
+        ::nanosleep (&rqt, nullptr);
+
+        std::cout << "From routine()\n";
+
+        return (true);
+    }
+private:
+    int data { }
+};
+
+// -------------------------------------------------------------
+
+using ThreadPoolType = ThreadPool<MyClass>;
+
+static const size_t THREAD_COUNT = 5;
+MyClass             my_obj;
+
+// -------------------------------------------------------------
+
+int main (int, char *[])  {
+
+    ThreadPoolType  thr_pool (THREAD_COUNT, true, 12);
+
+    thr_pool.add_thread (2);
+    thr_pool.add_thread (-3);
+    thr_pool.dispatch (&my_obj, &MyClass::routine);
+
+    return (EXIT_SUCCESS);
+}
+```

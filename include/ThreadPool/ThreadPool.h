@@ -43,19 +43,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmthrp
 {
 
-template <typename T, typename A>  // Class Type, Argument
+template <typename T>
 class   ThreadPool  {
 
 public:
 
     using class_type = T;
-    using arg_type = A;
     using size_type = int;
     using time_type = time_t;
 
-   // NOTE: This class takes ownership of the arg pointer and
-   //       deletes it when it is doen.
-   //
     typedef bool (class_type::*thrpool_routine) ();
 
     ThreadPool () = delete;
