@@ -51,22 +51,20 @@ public:
     using class_type = T;
     using size_type = int;
     using time_type = time_t;
-
-    typedef bool (class_type::*thrpool_routine) ();
+    using routine_type =  bool (class_type::*)();
 
     ThreadPool () = delete;
     ThreadPool (const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
 
-    explicit ThreadPool (size_type ini_thr_num,
-                         bool timeout_flag = true,
-                         time_type timeout_time = 30 * 60);
+    explicit
+    ThreadPool (size_type ini_thr_num,
+                bool timeout_flag = true,
+                time_type timeout_time = 30 * 60);
     ~ThreadPool ();
 
-public:
-
     bool dispatch (class_type *class_ptr,
-                   thrpool_routine routine,
+                   routine_type routine,
                    bool immediately = false) noexcept;
 
     bool add_thread (size_type thr_num);  // Could be positive or negative
@@ -84,53 +82,44 @@ public:
 
 private:
 
-   // This is the routine that is dispatched for each thread
-   //
+    // This is the routine that is dispatched for each thread
+    //
     bool thread_routine_ () noexcept;
+    void terminate_timed_outs_ () noexcept;
 
-private:
-
-    using guard_type = std::lock_guard<std::mutex>;
-
-    enum WORK_TYPE { _undefined_ = 0, _client_service_, _terminate_, _timeout_ };
+    enum class WORK_TYPE : unsigned char {
+        _undefined_ = 0,
+        _client_service_ = 1,
+        _terminate_ = 2,
+        _timeout_ = 3,
+    };
 
     struct  WorkUnit  {
 
-        inline WorkUnit () noexcept  {   }
-        inline WorkUnit (WORK_TYPE wt,
-                         ThreadPool *tpp,
-                         class_type *cp,
-                         thrpool_routine tr) noexcept
-            : work_type (wt),
-              thrpool_ptr (tpp),
-              class_ptr (cp),
-              the_routine (tr)  {   }
+        WorkUnit() = delete;
+        explicit WorkUnit(WORK_TYPE wt) : work_type(wt)  {   }
+        WorkUnit(WORK_TYPE wt, class_type *cp, routine_type tr)
+            : class_ptr (cp), the_routine (tr), work_type (wt)  {   }
 
-        WORK_TYPE       work_type { _undefined_ };
-        ThreadPool      *thrpool_ptr { nullptr };
         class_type      *class_ptr { nullptr };
-        thrpool_routine the_routine { nullptr };
+        routine_type    the_routine { nullptr };
+        const WORK_TYPE work_type { WORK_TYPE::_undefined_ };
     };
 
-private:
-
+    using guard_type = std::lock_guard<std::mutex>;
     using QueueType = SharedQueue<WorkUnit>;
     using ThreadType = std::thread;
 
-    QueueType               the_queue_ { };
+    QueueType               queue_ { };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
-	std::atomic<size_type>  timeouts_pending_ { 0 };
+    std::atomic<size_type>  timeouts_pending_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
     const size_type         initial_thr_num_;
     const time_type         timeout_time_;
     std::condition_variable destructor_cvx_ { };
     mutable std::mutex      state_ { };
     const bool              timeout_flag_;
-
-   // NOTE: This routine is _not_ thread safe.
-   //
-    inline void terminate_timed_outs_ () noexcept;
 };
 
 } // namespace hmthrp

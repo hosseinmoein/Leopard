@@ -49,7 +49,7 @@ MyClass my_obj;
 
 int main (int, char *[])  {
 
-    ThreadPoolType  thr_pool (THREAD_COUNT, true, 12);
+    ThreadPoolType  thr_pool (THREAD_COUNT, true, 10);
 
     thr_pool.add_thread (30);
 
@@ -82,16 +82,30 @@ int main (int, char *[])  {
               << " -- available: " << thr_pool.available_threads ()
               << std::endl;
 
-    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)  {
+    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
         thr_pool.dispatch (&my_obj, &MyClass::routine,
                            (! (i % 10)) ? true : false);
-    }
+    std::cout << "First batch is done ..." << std::endl;
     ::nanosleep (&rqt, nullptr);
+
+    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
+        thr_pool.dispatch (&my_obj, &MyClass::routine, false);
+    std::cout << "Second batch is done ..." << std::endl;
+    ::nanosleep (&rqt, nullptr);
+    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
+        thr_pool.dispatch (&my_obj, &MyClass::routine,
+                           (! (i % 10)) ? true : false);
+    std::cout << "Third batch is done ..." << std::endl;
+    rqt.tv_sec = 10;
+    ::nanosleep (&rqt, nullptr);
+    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
+        thr_pool.dispatch (&my_obj, &MyClass::routine, false);
+    std::cout << "Fourth batch is done ..." << std::endl;
 
     char    str[1024];
 
     ::snprintf (str, 1023,
-                "After Dispatching threads capacity: %d -- available: %d\n",
+                "After Dispatchings; capacity: %d -- available: %d\n",
                 thr_pool.capacity_threads (), thr_pool.available_threads ());
     std::cout << str;
 

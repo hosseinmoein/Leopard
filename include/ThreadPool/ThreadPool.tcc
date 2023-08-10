@@ -66,11 +66,8 @@ ThreadPool<T>::~ThreadPool ()  {
 
 // ----------------------------------------------------------------------------
 
-// NOTE: This routine is _not_ thread safe.
-//
 template <typename T>
-inline void ThreadPool<T>::
-terminate_timed_outs_ () noexcept  {
+void ThreadPool<T>::terminate_timed_outs_ () noexcept  {
 
     const size_type thrs_to_shut =
         available_threads_.load(std::memory_order_relaxed) -
@@ -78,10 +75,9 @@ terminate_timed_outs_ () noexcept  {
         timeouts_pending_.load(std::memory_order_relaxed);
 
     for (size_type i = 0; i < thrs_to_shut; ++i)  {
-        WorkUnit    wu;
+        const WorkUnit  wu (WORK_TYPE::_timeout_);
 
-        wu.work_type = _timeout_;
-        the_queue_.push (wu);
+        queue_.push (wu);
         timeouts_pending_ += 1;
     }
 
@@ -93,7 +89,7 @@ terminate_timed_outs_ () noexcept  {
 template <typename T>
 bool ThreadPool<T>::
 dispatch (class_type *class_ptr,
-          thrpool_routine routine,
+          routine_type routine,
           bool immediately) noexcept  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
@@ -101,15 +97,15 @@ dispatch (class_type *class_ptr,
         //                  "The thread pool is shutdown.");
         return (false);
 
-    if (timeout_flag_)
-        terminate_timed_outs_ ();
+    const WorkUnit  wu (WORK_TYPE::_client_service_, class_ptr, routine);
 
-    const WorkUnit  wu (_client_service_, this, class_ptr, routine);
-
-    the_queue_.push (wu);
+    queue_.push (wu);
 
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
         add_thread (1);
+
+    if (timeout_flag_)
+        terminate_timed_outs_();
 
     return (true);
 }
@@ -126,7 +122,7 @@ bool ThreadPool<T>::add_thread (size_type thr_num)  {
     const guard_type    guard (state_);
 
     if (thr_num < 0)  {
-        const size_type thrs_to_shut = ::labs (thr_num);
+        const size_type thrs_to_shut = ::abs (thr_num);
 
         if (thrs_to_shut >=
                 capacity_threads_.load(std::memory_order_relaxed))  {
@@ -141,10 +137,9 @@ bool ThreadPool<T>::add_thread (size_type thr_num)  {
         }
 
         for (size_type i = 0; i < thrs_to_shut; ++i)  {
-            WorkUnit    wu;
+            const WorkUnit  wu (WORK_TYPE::_terminate_);
 
-            wu.work_type = _terminate_;
-            the_queue_.push (wu);
+            queue_.push (wu);
         }
     }
     else if (thr_num > 0)  {
@@ -163,22 +158,22 @@ bool ThreadPool<T>::add_thread (size_type thr_num)  {
 template <typename T>
 bool ThreadPool<T>::shutdown () noexcept  {
 
-    const guard_type    guard (state_);
-    bool                expected = false;
+    bool    expected = false;
 
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
+        const guard_type    guard (state_);
+
         shutdown_flag_.store(true, std::memory_order_relaxed);
 
         const size_type capacity =
             capacity_threads_.load(std::memory_order_relaxed);
 
         for (size_type i = 0; i < capacity; ++i)  {
-            WorkUnit    wu;
+            const WorkUnit  wu (WORK_TYPE::_terminate_);
 
-            wu.work_type = _terminate_;
-            the_queue_.push (wu);
+            queue_.push (wu);
         }
     }
 
@@ -199,28 +194,24 @@ bool ThreadPool<T>::thread_routine_ () noexcept  {
     while (true)  {
         available_threads_ += 1;
 
-        const WorkUnit  wu = the_queue_.pop_front ();
+        const WorkUnit  wu = queue_.pop_front ();  // It can wait here
 
         available_threads_ -= 1;
 
-        if (wu.work_type == _timeout_)  {
+        if (wu.work_type == WORK_TYPE::_terminate_)  {
+            break;
+        }
+        else if (wu.work_type == WORK_TYPE::_timeout_)  {
             timeouts_pending_ -= 1;
 
             if (::time (nullptr) - last_busy_time >= timeout_time_)
                 break;
         }
-        else if (wu.work_type == _terminate_)  {
-            break;
-        }
-        else  {  // There is a task to do
-            class_type  *cp = wu.class_ptr;
+        else if (wu.work_type == WORK_TYPE::_client_service_)  {
+            class_type      *cp = wu.class_ptr;
+            routine_type    rt = wu.the_routine;
 
-            if (wu.work_type == _client_service_)  {
-                thrpool_routine rt = wu.the_routine;
-
-                (cp->*rt) ();
-            }
-
+            (cp->*rt) ();
             if (timeout_flag_)
                 last_busy_time = ::time (nullptr);
         }
