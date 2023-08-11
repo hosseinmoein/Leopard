@@ -109,6 +109,37 @@ SharedQueue<T>::front (bool wait_on_front)  { // throw (SQEmpty)
     return (queue_.front ());
 }
 
+// ----------------------------------------------------------------------------
+
+template<typename T>
+void SharedQueue<T>::pop () noexcept  {
+
+    const AutoLockable  lock (mutex_);
+
+    queue_.pop ();
+}
+
+// ----------------------------------------------------------------------------
+
+template<typename T>
+bool SharedQueue<T>::empty () const noexcept  {
+
+    const AutoLockable  lock (mutex_);
+
+    return (queue_.empty ());
+}
+
+// ----------------------------------------------------------------------------
+
+template<typename T>
+typename SharedQueue<T>::size_type
+SharedQueue<T>::size () const noexcept  {
+
+    const AutoLockable  lock (mutex_);
+
+    return (queue_.size ());
+}
+	
 } // namespace hmthrp
 
 // ----------------------------------------------------------------------------

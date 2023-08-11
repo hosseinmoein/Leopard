@@ -33,9 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <atomic>
 #include <condition_variable>
-#include <cstdlib>
 #include <mutex>
-#include <time.h>
 #include <thread>
 
 // ----------------------------------------------------------------------------
@@ -69,14 +67,8 @@ public:
 
     bool add_thread (size_type thr_num);  // Could be positive or negative
 
-    size_type available_threads () const noexcept  {
-
-        return (available_threads_.load(std::memory_order_relaxed));
-    }
-    size_type capacity_threads () const noexcept  {
-
-        return (capacity_threads_.load(std::memory_order_relaxed));
-    }
+    size_type available_threads () const noexcept;
+    size_type capacity_threads () const noexcept;
 
     bool shutdown () noexcept;
 
@@ -99,11 +91,11 @@ private:
         WorkUnit() = delete;
         explicit WorkUnit(WORK_TYPE wt) : work_type(wt)  {   }
         WorkUnit(WORK_TYPE wt, class_type *cp, routine_type tr)
-            : class_ptr (cp), the_routine (tr), work_type (wt)  {   }
+            : class_ptr (cp), func (tr), work_type (wt)  {   }
 
         class_type      *class_ptr { nullptr };
-        routine_type    the_routine { nullptr };
-        const WORK_TYPE work_type { WORK_TYPE::_undefined_ };
+        routine_type    func { nullptr };
+        const WORK_TYPE work_type;
     };
 
     using guard_type = std::lock_guard<std::mutex>;

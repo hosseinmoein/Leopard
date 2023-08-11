@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdexcept>
 #include <stdlib.h>
+#include <time.h>
 
 // ----------------------------------------------------------------------------
 
@@ -156,6 +157,24 @@ bool ThreadPool<T>::add_thread (size_type thr_num)  {
 // ----------------------------------------------------------------------------
 
 template <typename T>
+typename ThreadPool<T>::size_type
+ThreadPool<T>::available_threads () const noexcept  {
+
+    return (available_threads_.load(std::memory_order_relaxed));
+}
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
+typename ThreadPool<T>::size_type
+ThreadPool<T>::capacity_threads () const noexcept  {
+
+    return (capacity_threads_.load(std::memory_order_relaxed));
+}
+
+// ----------------------------------------------------------------------------
+
+template <typename T>
 bool ThreadPool<T>::shutdown () noexcept  {
 
     bool    expected = false;
@@ -183,14 +202,14 @@ bool ThreadPool<T>::shutdown () noexcept  {
 // ----------------------------------------------------------------------------
 
 template <typename T>
-bool ThreadPool<T>::thread_routine_ () noexcept  {
+bool ThreadPool<T>::thread_routine_() noexcept  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
-        return (true);
+        return (false);
+
+    time_type   last_busy_time = timeout_flag_ ? ::time(nullptr) : 0;
+
     capacity_threads_ += 1;
-
-    time_type   last_busy_time = timeout_flag_ ? ::time (nullptr) : 0;
-
     while (true)  {
         available_threads_ += 1;
 
@@ -204,16 +223,16 @@ bool ThreadPool<T>::thread_routine_ () noexcept  {
         else if (wu.work_type == WORK_TYPE::_timeout_)  {
             timeouts_pending_ -= 1;
 
-            if (::time (nullptr) - last_busy_time >= timeout_time_)
+            if (::time(nullptr) - last_busy_time >= timeout_time_)
                 break;
         }
         else if (wu.work_type == WORK_TYPE::_client_service_)  {
             class_type      *cp = wu.class_ptr;
-            routine_type    rt = wu.the_routine;
+            routine_type    f = wu.func;
 
-            (cp->*rt) ();
+            (cp->*f) ();
             if (timeout_flag_)
-                last_busy_time = ::time (nullptr);
+                last_busy_time = ::time(nullptr);
         }
     }
 

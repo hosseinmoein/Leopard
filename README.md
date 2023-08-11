@@ -31,14 +31,9 @@ This is a light-weight C++ Thread Pool that allows object member functions to ru
 ```cpp
 struct   MyClass  {
     bool routine ()  {
-        struct timespec rqt;
-
-        rqt.tv_sec = 1;
-        rqt.tv_nsec = 0;
-        ::nanosleep (&rqt, nullptr);
-
+    
         std::cout << "From routine()\n";
-
+        ::sleep(2);
         return (true);
     }
 private:

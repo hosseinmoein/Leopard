@@ -30,7 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include <condition_variable>
-#include <cstdlib>
 #include <deque>
 #include <mutex>
 #include <queue>
@@ -40,7 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmthrp
 {
 
-class   SQEmpty  { public: inline SQEmpty () throw ()  {   } };
+class   SQEmpty  { public: inline SQEmpty () noexcept  {   } };
 
 // ----------------------------------------------------------------------------
 
@@ -72,26 +71,9 @@ public:
     inline value_type
     pop_front (bool wait_on_front = true); // throw (SQEmpty);
 
-    inline void pop () noexcept  {
-
-        const AutoLockable  lock (mutex_);
-
-        queue_.pop ();
-    }
-
-    inline bool empty () const noexcept  {
-
-        const AutoLockable  lock (mutex_);
-
-        return (queue_.empty ());
-    }
-
-    inline size_type size () const noexcept  {
-
-        const AutoLockable  lock (mutex_);
-
-        return (queue_.size ());
-    }
+    void pop () noexcept;
+    bool empty () const noexcept;
+    size_type size () const noexcept;
 
 private:
 
