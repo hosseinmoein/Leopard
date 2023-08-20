@@ -53,20 +53,25 @@ private:
 // -------------------------------------------------------------
 
 using ThreadPoolType = ThreadPool<MyClass>;
-
-static const size_t THREAD_COUNT = 5;
-MyClass             my_obj;
-
-// -------------------------------------------------------------
+MyClass my_obj;
 
 int main (int, char *[])  {
 
-    ThreadPoolType  thr_pool (THREAD_COUNT, true, 12);
+    // Start off with 5 threads in reserve in the pool
+    // "timeout_flag" is true by default
+    // "timeout_time" is set to half an hour for idle treads by default
+    //
+    ThreadPoolType  thr_pool (5);
 
-    thr_pool.add_thread (2);
-    thr_pool.add_thread (-3);
+    thr_pool.add_thread (2);  // Add 2 threads to the pool
+    thr_pool.add_thread (-3); // Terminate 3 threads in the pool
+
+    // Dispatch routine from the my_obj instance
+    // "immediately" flag is set to false by default
+    //
     thr_pool.dispatch (&my_obj, &MyClass::routine);
 
+    std::cout << "Available threads: " << thr_pool.available_threads() << std::endl;
     return (EXIT_SUCCESS);
 }
 ```
