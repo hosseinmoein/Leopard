@@ -59,7 +59,7 @@ int main (int, char *[])  {
 
     // Start off with 5 threads in reserve in the pool
     // "timeout_flag" is true by default
-    // "timeout_time" is set to half an hour for idle treads by default
+    // "timeout_time" is set to half an hour for idle threads by default
     //
     ThreadPoolType  thr_pool (5);
 
@@ -72,6 +72,12 @@ int main (int, char *[])  {
     thr_pool.dispatch (&my_obj, &MyClass::routine);
 
     std::cout << "Available threads: " << thr_pool.available_threads() << std::endl;
+    std::cout << "Capacity threads: " << thr_pool.capacity_threads() << std::endl;
+    
+    // You don't have to call shutdown() necessarily, but you could.
+    // It is called by the distrcutor.
+    //
+    thr_pool.shutdown();
     return (EXIT_SUCCESS);
 }
 ```
