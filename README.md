@@ -75,7 +75,7 @@ int main (int, char *[])  {
     std::cout << "Capacity threads: " << thr_pool.capacity_threads() << std::endl;
     
     // You don't have to call shutdown() necessarily, but you could.
-    // It is called by the distrcutor.
+    // It is called by the destructor.
     //
     thr_pool.shutdown();
     return (EXIT_SUCCESS);
