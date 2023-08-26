@@ -52,28 +52,28 @@ public:
     using size_type = unsigned int;
 
     SharedQueue() = default;
-    SharedQueue (SharedQueue &&) = default;
+    SharedQueue(SharedQueue &&) = default;
     SharedQueue &operator = (SharedQueue &&) = default;
-    SharedQueue (const SharedQueue &) = delete;
+    SharedQueue(const SharedQueue &) = delete;
     SharedQueue &operator = (const SharedQueue &) = delete;
 
-    inline void push (const value_type &element) noexcept;
+    inline void push(const value_type &element) noexcept;
 
     inline const value_type &
-    front (bool wait_on_front = true) const; // throw (SQEmpty);
+    front(bool wait_on_front = true) const; // throw (SQEmpty);
     inline value_type &
-    front (bool wait_on_front = true); // throw (SQEmpty);
+    front(bool wait_on_front = true); // throw (SQEmpty);
 
     // NOTE: The following method returns the data by value.
     //       Therefore it is not as efficient as front().
     //       Use it only if you have to.
     //
     inline value_type
-    pop_front (bool wait_on_front = true); // throw (SQEmpty);
+    pop_front(bool wait_on_front = true); // throw (SQEmpty);
 
-    void pop () noexcept;
-    bool empty () const noexcept;
-    size_type size () const noexcept;
+    void pop() noexcept;
+    bool empty() const noexcept;
+    size_type size() const noexcept;
 
 private:
 

@@ -40,13 +40,11 @@ namespace hmthrp
 
 template <typename T>
 ThreadPool<T>::
-ThreadPool (size_type ini_thr_num, bool timeout_flag, time_type timeout_time)
-    : initial_thr_num_ (ini_thr_num >= 0 ? ini_thr_num : 0),
-      timeout_time_ (timeout_time),
-      timeout_flag_ (timeout_flag)  {
+ThreadPool (size_type thr_num, bool timeout_flag, time_type timeout_time)
+    : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
 
-    for (size_type i = 0; i < initial_thr_num_; ++i)  {
-        ThreadType  thr (&ThreadPool::thread_routine_, this);
+    for (size_type i = 0; i < thr_num; ++i)  {
+        ThreadType  thr { &ThreadPool::thread_routine_, this };
 
         thr.detach();
     }
@@ -55,31 +53,29 @@ ThreadPool (size_type ini_thr_num, bool timeout_flag, time_type timeout_time)
 // ----------------------------------------------------------------------------
 
 template <typename T>
-ThreadPool<T>::~ThreadPool ()  {
+ThreadPool<T>::~ThreadPool()  {
 
-    shutdown ();
-    if (capacity_threads_.load(std::memory_order_relaxed) != 0)  {
-        std::unique_lock<std::mutex>    guard (state_);
+    shutdown();
 
-        destructor_cvx_.wait (guard);
-    }
+    std::unique_lock<std::mutex>    guard { state_ };
+
+    if (capacity_threads_.load(std::memory_order_relaxed) != 0)
+        destructor_cvx_.wait(guard);
 }
 
 // ----------------------------------------------------------------------------
 
 template <typename T>
-void ThreadPool<T>::terminate_timed_outs_ () noexcept  {
+void ThreadPool<T>::terminate_timed_outs_() noexcept  {
 
-    const size_type thrs_to_shut =
-        available_threads_.load(std::memory_order_relaxed) -
-        initial_thr_num_ -
-        timeouts_pending_.load(std::memory_order_relaxed);
+    const size_type timeys {
+        capacity_threads_.load(std::memory_order_relaxed)
+    };
 
-    for (size_type i = 0; i < thrs_to_shut; ++i)  {
-        const WorkUnit  wu (WORK_TYPE::_timeout_);
+    for (size_type i = 0; i < timeys; ++i)  {
+        const WorkUnit  wu { WORK_TYPE::_timeout_ };
 
-        queue_.push (wu);
-        timeouts_pending_ += 1;
+        queue_.push(wu);
     }
 
     return;
@@ -89,21 +85,17 @@ void ThreadPool<T>::terminate_timed_outs_ () noexcept  {
 
 template <typename T>
 bool ThreadPool<T>::
-dispatch (class_type *class_ptr,
-          routine_type routine,
-          bool immediately) noexcept  {
+dispatch(class_type *class_ptr, routine_type routine, bool immediately)  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
-        // throw Exception ("ThreadPool::dispatch(): "
-        //                  "The thread pool is shutdown.");
-        return (false);
+        throw std::runtime_error("ThreadPool::dispatch(): "
+                                 "The thread pool is shutdown.");
 
-    const WorkUnit  wu (WORK_TYPE::_client_service_, class_ptr, routine);
+    const WorkUnit  wu { WORK_TYPE::_client_service_, class_ptr, routine };
 
-    queue_.push (wu);
-
+    queue_.push(wu);
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
-        add_thread (1);
+        add_thread(1);
 
     if (timeout_flag_)
         terminate_timed_outs_();
@@ -114,38 +106,37 @@ dispatch (class_type *class_ptr,
 // ----------------------------------------------------------------------------
 
 template <typename T>
-bool ThreadPool<T>::add_thread (size_type thr_num)  {
+bool ThreadPool<T>::add_thread(size_type thr_num)  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
-        throw std::runtime_error ("ThreadPool::add_thread(): "
-                                  "The thread pool is shutdown.");
+        throw std::runtime_error("ThreadPool::add_thread(): "
+                                 "The thread pool is shutdown.");
 
-    const guard_type    guard (state_);
+    const guard_type    guard { state_ };
 
     if (thr_num < 0)  {
-        const size_type thrs_to_shut = ::abs (thr_num);
+        const size_type shutys { ::abs(thr_num) };
 
-        if (thrs_to_shut >=
-                capacity_threads_.load(std::memory_order_relaxed))  {
+        if (shutys >= capacity_threads_.load(std::memory_order_relaxed))  {
             char    err[1024];
 
             ::snprintf(err, 1023,
                        "ThreadPool::add_thread(): Cannot subtract "
                        "'%d' threads from the pool with capacity '%d'",
-                       thrs_to_shut,
+                       shutys,
                        capacity_threads_.load(std::memory_order_relaxed));
-            throw std::runtime_error (err);
+            throw std::runtime_error(err);
         }
 
-        for (size_type i = 0; i < thrs_to_shut; ++i)  {
-            const WorkUnit  wu (WORK_TYPE::_terminate_);
+        for (size_type i = 0; i < shutys; ++i)  {
+            const WorkUnit  wu { WORK_TYPE::_terminate_ };
 
-            queue_.push (wu);
+            queue_.push(wu);
         }
     }
     else if (thr_num > 0)  {
         for (size_type i = 0; i < thr_num; ++i)  {
-            ThreadType  thr (&ThreadPool::thread_routine_, this);
+            ThreadType  thr { &ThreadPool::thread_routine_, this };
 
             thr.detach();
         }
@@ -158,7 +149,7 @@ bool ThreadPool<T>::add_thread (size_type thr_num)  {
 
 template <typename T>
 typename ThreadPool<T>::size_type
-ThreadPool<T>::available_threads () const noexcept  {
+ThreadPool<T>::available_threads() const noexcept  {
 
     return (available_threads_.load(std::memory_order_relaxed));
 }
@@ -167,7 +158,7 @@ ThreadPool<T>::available_threads () const noexcept  {
 
 template <typename T>
 typename ThreadPool<T>::size_type
-ThreadPool<T>::capacity_threads () const noexcept  {
+ThreadPool<T>::capacity_threads() const noexcept  {
 
     return (capacity_threads_.load(std::memory_order_relaxed));
 }
@@ -175,14 +166,14 @@ ThreadPool<T>::capacity_threads () const noexcept  {
 // ----------------------------------------------------------------------------
 
 template <typename T>
-bool ThreadPool<T>::shutdown () noexcept  {
+bool ThreadPool<T>::shutdown() noexcept  {
 
-    bool    expected = false;
+    bool    expected { false };
 
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
-        const guard_type    guard (state_);
+        const guard_type    guard { state_ };
 
         shutdown_flag_.store(true, std::memory_order_relaxed);
 
@@ -190,9 +181,9 @@ bool ThreadPool<T>::shutdown () noexcept  {
             capacity_threads_.load(std::memory_order_relaxed);
 
         for (size_type i = 0; i < capacity; ++i)  {
-            const WorkUnit  wu (WORK_TYPE::_terminate_);
+            const WorkUnit  wu { WORK_TYPE::_terminate_ };
 
-            queue_.push (wu);
+            queue_.push(wu);
         }
     }
 
@@ -207,38 +198,39 @@ bool ThreadPool<T>::thread_routine_() noexcept  {
     if (shutdown_flag_.load(std::memory_order_relaxed))
         return (false);
 
-    time_type   last_busy_time = timeout_flag_ ? ::time(nullptr) : 0;
+    time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
 
-    capacity_threads_ += 1;
+    ++capacity_threads_;
     while (true)  {
-        available_threads_ += 1;
+        ++available_threads_;
 
-        const WorkUnit  wu = queue_.pop_front ();  // It can wait here
+        const WorkUnit  wu { queue_.pop_front() };  // It can wait here
 
-        available_threads_ -= 1;
+        --available_threads_;
 
         if (wu.work_type == WORK_TYPE::_terminate_)  {
             break;
         }
         else if (wu.work_type == WORK_TYPE::_timeout_)  {
-            timeouts_pending_ -= 1;
-
             if (::time(nullptr) - last_busy_time >= timeout_time_)
                 break;
         }
         else if (wu.work_type == WORK_TYPE::_client_service_)  {
-            class_type      *cp = wu.class_ptr;
-            routine_type    f = wu.func;
+            class_type      *cp { wu.class_ptr };
+            routine_type    f { wu.func };
 
-            (cp->*f) ();
+            (cp->*f)();
             if (timeout_flag_)
                 last_busy_time = ::time(nullptr);
         }
     }
 
     --capacity_threads_;
-    if (capacity_threads_.load(std::memory_order_relaxed) == 0)
-        destructor_cvx_.notify_one ();
+    if (capacity_threads_.load(std::memory_order_relaxed) == 0)  {
+        std::unique_lock<std::mutex>    guard { state_ };
+
+        destructor_cvx_.notify_one();
+    }
 
     return (true);
 }

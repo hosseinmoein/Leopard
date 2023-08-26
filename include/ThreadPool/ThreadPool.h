@@ -51,33 +51,33 @@ public:
     using time_type = time_t;
     using routine_type =  bool (class_type::*)();
 
-    ThreadPool () = delete;
-    ThreadPool (const ThreadPool &) = delete;
+    ThreadPool() = delete;
+    ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
 
     explicit
-    ThreadPool (size_type ini_thr_num,
-                bool timeout_flag = true,
-                time_type timeout_time = 30 * 60);
-    ~ThreadPool ();
+    ThreadPool(size_type thr_num,
+               bool timeout_flag = true,
+               time_type timeout_time = 30 * 60);
+    ~ThreadPool();
 
-    bool dispatch (class_type *class_ptr,
-                   routine_type routine,
-                   bool immediately = false) noexcept;
+    bool dispatch(class_type *class_ptr,
+                  routine_type routine,
+                  bool immediately = false);
 
-    bool add_thread (size_type thr_num);  // Could be positive or negative
+    bool add_thread(size_type thr_num);  // Could be positive or negative
 
-    size_type available_threads () const noexcept;
-    size_type capacity_threads () const noexcept;
+    size_type available_threads() const noexcept;
+    size_type capacity_threads() const noexcept;
 
-    bool shutdown () noexcept;
+    bool shutdown() noexcept;
 
 private:
 
     // This is the routine that is dispatched for each thread
     //
-    bool thread_routine_ () noexcept;
-    void terminate_timed_outs_ () noexcept;
+    bool thread_routine_() noexcept;
+    void terminate_timed_outs_() noexcept;
 
     enum class WORK_TYPE : unsigned char {
         _undefined_ = 0,
@@ -105,9 +105,7 @@ private:
     QueueType               queue_ { };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
-    std::atomic<size_type>  timeouts_pending_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
-    const size_type         initial_thr_num_;
     const time_type         timeout_time_;
     std::condition_variable destructor_cvx_ { };
     mutable std::mutex      state_ { };

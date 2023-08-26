@@ -36,57 +36,51 @@ namespace hmthrp
 
 template<typename T>
 inline void
-SharedQueue<T>::push (const value_type &element) noexcept  {
+SharedQueue<T>::push(const value_type &element) noexcept  {
 
-    const AutoLockable  lock (mutex_);
-    const bool          was_empty = queue_.empty ();
+    const AutoLockable  lock { mutex_ };
+    const bool          was_empty { queue_.empty() };
 
     queue_.push (element);
-
-    if (was_empty)
-        cvx_.notify_all ();
+    if (was_empty)  cvx_.notify_all();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
 inline const typename SharedQueue<T>::value_type &
-SharedQueue<T>::
-front (bool wait_on_front) const  { // throw (SQEmpty)
+SharedQueue<T>::front(bool wait_on_front) const  { // throw (SQEmpty)
 
-    std::unique_lock<std::mutex>    ul(mutex_);
+    std::unique_lock<std::mutex>    ul { mutex_ };
 
-    if (queue_.empty ())  {
+    if (queue_.empty())  {
         if (wait_on_front)
-            while (queue_.empty ())
-                cvx_.wait (ul);
+            while (queue_.empty())  cvx_.wait(ul);
         else
-            throw SQEmpty ();
+            throw SQEmpty { };
     }
 
-    return (queue_.front ());
+    return (queue_.front());
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
 inline typename SharedQueue<T>::value_type
-SharedQueue<T>::
-pop_front (bool wait_on_front)  { // throw (SQEmpty)
+SharedQueue<T>::pop_front(bool wait_on_front)  { // throw (SQEmpty)
 
-    std::unique_lock<std::mutex>    ul(mutex_);
+    std::unique_lock<std::mutex>    ul { mutex_ };
 
-    if (queue_.empty ())  {
+    if (queue_.empty())  {
         if (wait_on_front)
-            while (queue_.empty ())
-                cvx_.wait (ul);
+            while (queue_.empty())  cvx_.wait(ul);
         else
-            throw SQEmpty ();
+            throw SQEmpty { };
     }
 
-    const   value_type  value = queue_.front ();
+    const   value_type  value { queue_.front() };
 
-    queue_.pop ();
+    queue_.pop();
     return (value);
 }
 
@@ -94,50 +88,49 @@ pop_front (bool wait_on_front)  { // throw (SQEmpty)
 
 template<typename T>
 inline typename SharedQueue<T>::value_type &
-SharedQueue<T>::front (bool wait_on_front)  { // throw (SQEmpty)
+SharedQueue<T>::front(bool wait_on_front)  { // throw (SQEmpty)
 
-    std::unique_lock<std::mutex>    ul(mutex_);
+    std::unique_lock<std::mutex>    ul { mutex_ };
 
-    if (queue_.empty ())  {
+    if (queue_.empty())  {
         if (wait_on_front)
-            while (queue_.empty ())
-                cvx_.wait (ul);
+            while (queue_.empty())  cvx_.wait(ul);
         else
-            throw SQEmpty ();
+            throw SQEmpty { };
     }
 
-    return (queue_.front ());
+    return (queue_.front());
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
-void SharedQueue<T>::pop () noexcept  {
+void SharedQueue<T>::pop() noexcept  {
 
-    const AutoLockable  lock (mutex_);
+    const AutoLockable  lock { mutex_ };
 
-    queue_.pop ();
+    queue_.pop();
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
-bool SharedQueue<T>::empty () const noexcept  {
+bool SharedQueue<T>::empty() const noexcept  {
 
-    const AutoLockable  lock (mutex_);
+    const AutoLockable  lock { mutex_ };
 
-    return (queue_.empty ());
+    return (queue_.empty());
 }
 
 // ----------------------------------------------------------------------------
 
 template<typename T>
 typename SharedQueue<T>::size_type
-SharedQueue<T>::size () const noexcept  {
+SharedQueue<T>::size() const noexcept  {
 
-    const AutoLockable  lock (mutex_);
+    const AutoLockable  lock { mutex_ };
 
-    return (queue_.size ());
+    return (queue_.size());
 }
 	
 } // namespace hmthrp
