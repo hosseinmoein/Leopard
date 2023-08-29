@@ -64,7 +64,7 @@ PRE_BUILD:
 	mkdir -p $(LOCAL_BIN_DIR)
 	mkdir -p $(LOCAL_OBJ_DIR)
 	mkdir -p $(PROJECT_LIB_DIR)
-	mkdir -p $(PROJECT_INCLUDE_DIR)/DataFrame
+	mkdir -p $(PROJECT_INCLUDE_DIR)/ThreadPool
 
 $(TARGET_LIB):
 
