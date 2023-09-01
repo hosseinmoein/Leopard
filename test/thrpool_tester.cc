@@ -7,51 +7,58 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <string>
 
 using namespace hmthrp;
 
-//-----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
-static const size_t THREAD_COUNT = 5;
+static const std::size_t    THREAD_COUNT = 5;
 
-//-----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
-class   MyClass  {
+struct  MyClass  {
 
-    public:
+    MyClass()  { std::cout << "MyClass is Constructed" << std::endl; }
+    ~MyClass()  { std::cout << "MyClass is Destructed" << std::endl; }
 
-        MyClass ()  { std::cout << "MyClass is Constructed" << std::endl; }
-        ~MyClass ()  { std::cout << "MyClass is Destructed" << std::endl; }
-
-    public:
-
-        bool routine ()  {
+    bool routine(std::size_t i)  {
 
             struct timespec rqt;
 
             rqt.tv_sec = 1;
             rqt.tv_nsec = 0;
-            ::nanosleep (&rqt, nullptr);
+            ::nanosleep(&rqt, nullptr);
 
-            std::cout << "From routine()\n";
+            std::cout << "From routine() " << i << "\n";
 
             return (true);
         }
 };
 
-//-----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
-using ThreadPoolType = ThreadPool<MyClass>;
+std::string
+my_func(const std::size_t &i, const double &d, const std::string &s)  {
 
-//-----------------------------------------------------------------------------
+    struct timespec rqt;
 
-MyClass my_obj;
+    rqt.tv_sec = 1;
+    rqt.tv_nsec = 0;
+    ::nanosleep(&rqt, nullptr);
+
+    std::cout << "my_func(): " << i << ", " << d << ", " << s << '\n';
+    return (s + "_ABC");
+}
+
+// ----------------------------------------------------------------------------
 
 int main (int, char *[])  {
 
-    ThreadPoolType  thr_pool (THREAD_COUNT, true, 10);
+    MyClass     my_obj;
+    ThreadPool  thr_pool (THREAD_COUNT, true, 10);
 
-    thr_pool.add_thread (30);
+    thr_pool.add_thread(20);
 
     struct timespec rqt;
 
@@ -59,60 +66,46 @@ int main (int, char *[])  {
     rqt.tv_nsec = 0;
     ::nanosleep (&rqt, nullptr);
 
-    std::cout << "Initial capacity: " << thr_pool.capacity_threads ()
-              << " -- available: " << thr_pool.available_threads ()
+    std::cout << "Initial capacity: " << thr_pool.capacity_threads()
+              << " -- available: " << thr_pool.available_threads()
               << std::endl;
 
-    thr_pool.add_thread (2);
+    thr_pool.add_thread(2);
 
     rqt.tv_sec = 2;
     rqt.tv_nsec = 0;
-    ::nanosleep (&rqt, nullptr);  // Give it time to take effect
+    ::nanosleep(&rqt, nullptr);  // Give it time to take effect
 
     std::cout << "After adding 2 threads capacity: "
-              << thr_pool.capacity_threads ()
-              << " -- available: " << thr_pool.available_threads ()
+              << thr_pool.capacity_threads()
+              << " -- available: " << thr_pool.available_threads()
               << std::endl;
 
-    thr_pool.add_thread (-2);
-    ::nanosleep (&rqt, nullptr);  // Give it time to take effect
+    thr_pool.add_thread(-2);
+    ::nanosleep(&rqt, nullptr);  // Give it time to take effect
 
     std::cout << "After adding -2 threads capacity: "
-              << thr_pool.capacity_threads ()
-              << " -- available: " << thr_pool.available_threads ()
+              << thr_pool.capacity_threads()
+              << " -- available: " << thr_pool.available_threads()
               << std::endl;
 
-    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
-        thr_pool.dispatch (&my_obj, &MyClass::routine,
-                           (! (i % 10)) ? true : false);
+    // for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
+    //     thr_pool.dispatch((! (i % 10)) ? true : false,
+	// 					  &MyClass::routine, &my_obj, i);
     std::cout << "First batch is done ..." << std::endl;
-    ::nanosleep (&rqt, nullptr);
 
-    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
-        thr_pool.dispatch (&my_obj, &MyClass::routine, false);
-    std::cout << "Second batch is done ..." << std::endl;
     ::nanosleep (&rqt, nullptr);
-    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
-        thr_pool.dispatch (&my_obj, &MyClass::routine,
-                           (! (i % 10)) ? true : false);
-    std::cout << "Third batch is done ..." << std::endl;
-    rqt.tv_sec = 10;
-    ::nanosleep (&rqt, nullptr);
-    for (size_t i = 0; i < THREAD_COUNT * 100; ++i)
-        thr_pool.dispatch (&my_obj, &MyClass::routine, false);
-    std::cout << "Fourth batch is done ..." << std::endl;
-
-    char    str[1024];
-
-    ::snprintf (str, 1023,
-                "After Dispatchings; capacity: %d -- available: %d\n",
-                thr_pool.capacity_threads (), thr_pool.available_threads ());
-    std::cout << str;
+    for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
+        thr_pool.dispatch(
+            (! (i % 10)) ? true : false,
+            []() -> void {
+                std::cout << "Square of " <<'\n';
+            });
 
     return (EXIT_SUCCESS);
 }
 
-//-----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 
 // Local Variables:
 // mode:C++
