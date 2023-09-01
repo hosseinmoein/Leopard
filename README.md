@@ -46,9 +46,9 @@ It has the following features:<BR>
 ```cpp
 struct   MyClass  {
     bool routine(std::size_t i)  {
-            std::cout << "From routine() " << i << "\n";
-            return (true);
-        }
+        std::cout << "From routine() " << i << "\n";
+        return (true);
+    }
 };
 
 // ----------------------------------------------------------------------------
