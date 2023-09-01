@@ -46,12 +46,6 @@ It has the following features:<BR>
 ```cpp
 struct   MyClass  {
     bool routine(std::size_t i)  {
-            struct timespec rqt;
-
-            rqt.tv_sec = 1;
-            rqt.tv_nsec = 0;
-            ::nanosleep(&rqt, nullptr);
-
             std::cout << "From routine() " << i << "\n";
             return (true);
         }
@@ -61,12 +55,6 @@ struct   MyClass  {
 
 std::string
 my_func(std::size_t i, double d, const std::string &s)  {
-    struct timespec rqt;
-
-    rqt.tv_sec = 1;
-    rqt.tv_nsec = 0;
-    ::nanosleep(&rqt, nullptr);
-
     std::cout << "my_func(): " << i << ", " << d << ", " << s << '\n';
     return (s + "_ABC");
 }
@@ -102,7 +90,8 @@ int main (int, char *[])  {
     // Dispatch a function
     // "immediately" flag is set to false
     //
-    auto    my_func_fut = thr_pool.dispatch(false, my_func, 5555, 0.555, std::cref(str));
+    const std::string   str = "XXXX";
+    auto                my_func_fut = thr_pool.dispatch(false, my_func, 5555, 0.555, std::cref(str));
     std::cout << "my_func Future result: " << my_func_fut.get() << std::endl;
 
     std::cout << "Available threads: " << thr_pool.available_threads() << std::endl;
