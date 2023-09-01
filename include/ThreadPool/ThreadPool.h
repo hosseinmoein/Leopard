@@ -64,10 +64,7 @@ public:
     ~ThreadPool();
 
     template<typename F, typename ... As>
-    // std::future<
-    //     std::invoke_result_t<typename std::decay<F>::type
-    //                          (typename std::decay<As>::type ...)>>
-    auto
+    std::future<std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>>
     dispatch(bool immediately, F &&routine, As && ... args);
 
     bool add_thread(size_type thr_num);  // Could be positive or negative

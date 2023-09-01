@@ -81,10 +81,7 @@ void ThreadPool::terminate_timed_outs_() noexcept  {
 // ----------------------------------------------------------------------------
 
 template<typename F, typename ... As>
-// std::future<
-//     std::invoke_result_t<typename std::decay<F>::type
-//                          (typename std::decay<As>::type ...)>>
-auto
+std::future<std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>>
 ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
@@ -94,8 +91,8 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
         add_thread(1);
 
-    using return_type = std::invoke_result_t<
-        typename std::decay_t<F>(typename std::decay_t<As> ...)>;
+    using return_type =
+        std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
 
     auto                        callable  {
         std::make_shared<std::packaged_task<return_type()>>
