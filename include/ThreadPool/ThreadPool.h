@@ -33,23 +33,25 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <atomic>
 #include <condition_variable>
+#include <functional>
+#include <future>
 #include <mutex>
 #include <thread>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 // ----------------------------------------------------------------------------
 
 namespace hmthrp
 {
 
-template <typename T>
 class   ThreadPool  {
 
 public:
 
-    using class_type = T;
     using size_type = int;
     using time_type = time_t;
-    using routine_type =  bool (class_type::*)();
 
     ThreadPool() = delete;
     ThreadPool(const ThreadPool &) = delete;
@@ -61,9 +63,9 @@ public:
                time_type timeout_time = 30 * 60);
     ~ThreadPool();
 
-    bool dispatch(class_type *class_ptr,
-                  routine_type routine,
-                  bool immediately = false);
+    template<typename F, typename ... As>
+    std::future<std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>>
+    dispatch(bool immediately, F &&routine, As && ... args);
 
     bool add_thread(size_type thr_num);  // Could be positive or negative
 
@@ -79,6 +81,8 @@ private:
     bool thread_routine_() noexcept;
     void terminate_timed_outs_() noexcept;
 
+    using routine_type = std::function<void()>;
+
     enum class WORK_TYPE : unsigned char {
         _undefined_ = 0,
         _client_service_ = 1,
@@ -89,12 +93,14 @@ private:
     struct  WorkUnit  {
 
         WorkUnit() = delete;
-        explicit WorkUnit(WORK_TYPE wt) : work_type(wt)  {   }
-        WorkUnit(WORK_TYPE wt, class_type *cp, routine_type tr)
-            : class_ptr (cp), func (tr), work_type (wt)  {   }
+        WorkUnit(const WorkUnit &) = default;
+        WorkUnit(WorkUnit &&) = default;
+        explicit WorkUnit(WORK_TYPE work_t) : work_type(work_t)  {   }
+        WorkUnit(WORK_TYPE work_t, routine_type &&routine)
+            : func(std::forward<routine_type>(routine)),
+              work_type(work_t)  {   }
 
-        class_type      *class_ptr { nullptr };
-        routine_type    func { nullptr };
+        routine_type    func {  };
         const WORK_TYPE work_type;
     };
 
@@ -103,11 +109,11 @@ private:
     using ThreadType = std::thread;
 
     QueueType               queue_ { };
+    std::vector<ThreadType> threads_ {  };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
     const time_type         timeout_time_;
-    std::condition_variable destructor_cvx_ { };
     mutable std::mutex      state_ { };
     const bool              timeout_flag_;
 };
