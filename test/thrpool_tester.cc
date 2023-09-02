@@ -14,6 +14,7 @@ using namespace hmthrp;
 // ----------------------------------------------------------------------------
 
 static const std::size_t    THREAD_COUNT = 5;
+static std::mutex           GLOCK { };
 
 // ----------------------------------------------------------------------------
 
@@ -30,8 +31,9 @@ struct  MyClass  {
             rqt.tv_nsec = 0;
             ::nanosleep(&rqt, nullptr);
 
-            std::cout << "From routine() " << i << "\n";
+            const std::lock_guard<std::mutex>   lock { GLOCK };
 
+            std::cout << "From MyClass::routine(): " << i << std::endl;
             return (true);
         }
 };
@@ -49,7 +51,9 @@ my_func(std::size_t i, double d, const std::string &s)  {
     rqt.tv_nsec = 0;
     ::nanosleep(&rqt, nullptr);
 
-    std::cout << "my_func(): " << i << ", " << d << ", " << s << '\n';
+    const std::lock_guard<std::mutex>   lock { GLOCK };
+
+    std::cout << "From my_func(): " << i << ", " << d << ", " << s << std::endl;
     return (s + "_ABC");
 }
 
@@ -93,7 +97,12 @@ int main (int, char *[])  {
     for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
         thr_pool.dispatch((! (i % 10)) ? true : false,
                           &MyClass::routine, &my_obj, i);
-    std::cout << "First batch is done ..." << std::endl;
+
+    {
+        const std::lock_guard<std::mutex>   lock { GLOCK };
+
+        std::cout << "First batch is done ..." << std::endl;
+    }
     ::nanosleep (&rqt, nullptr);
 
     for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
@@ -103,19 +112,31 @@ int main (int, char *[])  {
     auto    my_class_fut =
         thr_pool.dispatch(false, &MyClass::routine, &my_obj, 5555);
 
-    std::cout << "MyClass Future result: " << my_class_fut.get() << std::endl;
-    std::cout << "Second batch is done ..." << std::endl;
+    {
+        const std::lock_guard<std::mutex>   lock { GLOCK };
+
+        std::cout << "MyClass Future result: " << my_class_fut.get()
+                  << std::endl;
+        std::cout << "Second batch is done ..." << std::endl;
+    }
 
     ::nanosleep (&rqt, nullptr);
     for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
         thr_pool.dispatch(
             (! (i % 10)) ? true : false,
             [](std::size_t i) -> std::size_t {
-                std::cout << "Square of " << i << " is " << i * i << '\n';
+                const std::lock_guard<std::mutex>   lock { GLOCK };
+
+                std::cout << "From Lambda: of " << i * i << std::endl;
                 return (i * i);
             },
             i);
-    std::cout << "Third batch is done ..." << std::endl;
+
+    {
+        const std::lock_guard<std::mutex>   lock { GLOCK };
+
+        std::cout << "Third batch is done ..." << std::endl;
+    }
     rqt.tv_sec = 10;
     ::nanosleep (&rqt, nullptr);
 
@@ -131,13 +152,18 @@ int main (int, char *[])  {
     auto    my_func_fut =
         thr_pool.dispatch(false, my_func, 5555, 0.555, std::cref(str));
 
-    std::cout << "my_func Future result: " << my_func_fut.get() << std::endl;
-    std::cout << "Fourth batch is done ..." << std::endl;
+    {
+        const std::lock_guard<std::mutex>   lock { GLOCK };
 
-    std::cout << "After Dispatchings; capacity: "
-              << thr_pool.capacity_threads() << " -- "
-              << "available: " << thr_pool.available_threads()
-              << std::endl;
+        std::cout << "my_func Future result: " << my_func_fut.get()
+                  << std::endl;
+        std::cout << "Fourth batch is done ..." << std::endl;
+
+        std::cout << "After Dispatchings; capacity: "
+                  << thr_pool.capacity_threads() << " -- "
+                  << "available: " << thr_pool.available_threads()
+                  << std::endl;
+    }
 
     return (EXIT_SUCCESS);
 }

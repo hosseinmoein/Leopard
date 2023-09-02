@@ -54,7 +54,7 @@ ThreadPool::~ThreadPool()  {
 
     shutdown();
 
-    guard_type  guard { state_ };
+    const guard_type    guard { state_ };
 
     for (auto &routine : threads_)
         if (routine.joinable())
@@ -81,34 +81,33 @@ void ThreadPool::terminate_timed_outs_() noexcept  {
 // ----------------------------------------------------------------------------
 
 template<typename F, typename ... As>
-std::future<std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>>
+ThreadPool::dispatch_res_t<F, As ...>
 ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
         throw std::runtime_error("ThreadPool::dispatch(): "
                                  "The thread pool is shutdown.");
 
-    if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
-        add_thread(1);
-
     using return_type =
         std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
+    using future_type = ThreadPool::dispatch_res_t<F, As ...>;
 
-    auto                        callable  {
+    auto            callable  {
         std::make_shared<std::packaged_task<return_type()>>
             (std::bind(std::forward<F>(routine), std::forward<As>(args) ...))
     };
-    std::future<return_type>    fut { callable->get_future() };
-    const WorkUnit              work_unit {
+    future_type     return_fut { callable->get_future() };
+    const WorkUnit  work_unit {
         WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
     };
 
+    if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
+        add_thread(1);
     queue_.push(work_unit);
 
     if (timeout_flag_)
         terminate_timed_outs_();
-
-    return (fut);
+    return (return_fut);
 }
 
 // ----------------------------------------------------------------------------
@@ -118,8 +117,6 @@ bool ThreadPool::add_thread(size_type thr_num)  {
     if (shutdown_flag_.load(std::memory_order_relaxed))
         throw std::runtime_error("ThreadPool::add_thread(): "
                                  "The thread pool is shutdown.");
-
-    const guard_type    guard { state_ };
 
     if (thr_num < 0)  {
         const size_type shutys { ::abs(thr_num) };
@@ -142,6 +139,8 @@ bool ThreadPool::add_thread(size_type thr_num)  {
         }
     }
     else if (thr_num > 0)  {
+        const guard_type    guard { state_ };
+
         for (size_type i = 0; i < thr_num; ++i)
             threads_.emplace_back(&ThreadPool::thread_routine_, this);
     }
@@ -174,8 +173,6 @@ bool ThreadPool::shutdown() noexcept  {
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
-
-        shutdown_flag_.store(true, std::memory_order_relaxed);
 
         const size_type capacity {
             capacity_threads_.load(std::memory_order_relaxed)
@@ -216,7 +213,7 @@ bool ThreadPool::thread_routine_() noexcept  {
                 break;
         }
         else if (work_unit.work_type == WORK_TYPE::_client_service_)  {
-            (work_unit.func)();
+            (work_unit.func)();  // Execute the callable
             if (timeout_flag_)
                 last_busy_time = ::time(nullptr);
         }
