@@ -113,7 +113,7 @@ int main (int, char *[])  {
         thr_pool.dispatch(false, &MyClass::routine, &my_obj, 5555);
 
     {
-        const std::lock_guard<std::mutex>   lock { GLOCK };
+        // const std::lock_guard<std::mutex>   lock { GLOCK };
 
         std::cout << "MyClass Future result: " << my_class_fut.get()
                   << std::endl;
@@ -153,7 +153,7 @@ int main (int, char *[])  {
         thr_pool.dispatch(false, my_func, 5555, 0.555, std::cref(str));
 
     {
-        const std::lock_guard<std::mutex>   lock { GLOCK };
+        // const std::lock_guard<std::mutex>   lock { GLOCK };
 
         std::cout << "my_func Future result: " << my_func_fut.get()
                   << std::endl;
