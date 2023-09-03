@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ThreadPool/SharedQueue.h>
 
 #include <atomic>
+#include <concepts>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -54,6 +55,7 @@ public:
     using time_type = time_t;
 
     template<typename F, typename ... As>
+    requires std::invocable<F, As ...>
     using dispatch_res_t =
         std::future<std::invoke_result_t<std::decay_t<F>,
                                          std::decay_t<As> ...>>;

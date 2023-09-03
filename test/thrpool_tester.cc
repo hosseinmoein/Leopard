@@ -106,17 +106,16 @@ int main (int, char *[])  {
     ::nanosleep (&rqt, nullptr);
 
     for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
-        thr_pool.dispatch(false,
-                          &MyClass::routine, &my_obj, i);
+        thr_pool.dispatch(false, &MyClass::routine, &my_obj, i);
 
     auto    my_class_fut =
         thr_pool.dispatch(false, &MyClass::routine, &my_obj, 5555);
 
+    std::cout << "MyClass Future result: " << my_class_fut.get()
+              << std::endl;
     {
-        // const std::lock_guard<std::mutex>   lock { GLOCK };
+        const std::lock_guard<std::mutex>   lock { GLOCK };
 
-        std::cout << "MyClass Future result: " << my_class_fut.get()
-                  << std::endl;
         std::cout << "Second batch is done ..." << std::endl;
     }
 
@@ -127,7 +126,7 @@ int main (int, char *[])  {
             [](std::size_t i) -> std::size_t {
                 const std::lock_guard<std::mutex>   lock { GLOCK };
 
-                std::cout << "From Lambda: of " << i * i << std::endl;
+                std::cout << "From Lambda: " << i * i << std::endl;
                 return (i * i);
             },
             i);
@@ -152,11 +151,11 @@ int main (int, char *[])  {
     auto    my_func_fut =
         thr_pool.dispatch(false, my_func, 5555, 0.555, std::cref(str));
 
+    std::cout << "my_func Future result: " << my_func_fut.get()
+              << std::endl;
     {
-        // const std::lock_guard<std::mutex>   lock { GLOCK };
+        const std::lock_guard<std::mutex>   lock { GLOCK };
 
-        std::cout << "my_func Future result: " << my_func_fut.get()
-                  << std::endl;
         std::cout << "Fourth batch is done ..." << std::endl;
 
         std::cout << "After Dispatchings; capacity: "
