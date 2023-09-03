@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ThreadPool/SharedQueue.h>
 
 #include <atomic>
+#include <concepts>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -53,6 +54,12 @@ public:
     using size_type = int;
     using time_type = time_t;
 
+    template<typename F, typename ... As>
+    requires std::invocable<F, As ...>
+    using dispatch_res_t =
+        std::future<std::invoke_result_t<std::decay_t<F>,
+                                         std::decay_t<As> ...>>;
+
     ThreadPool() = delete;
     ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
@@ -63,8 +70,10 @@ public:
                time_type timeout_time = 30 * 60);
     ~ThreadPool();
 
+    // The return type of dispatch is std::future of return type of routine
+    //
     template<typename F, typename ... As>
-    std::future<std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>>
+    dispatch_res_t<F, As ...>
     dispatch(bool immediately, F &&routine, As && ... args);
 
     bool add_thread(size_type thr_num);  // Could be positive or negative
