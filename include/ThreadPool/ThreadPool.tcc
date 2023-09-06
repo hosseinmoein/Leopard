@@ -70,9 +70,9 @@ void ThreadPool::terminate_timed_outs_() noexcept  {
     };
 
     for (size_type i = 0; i < timeys; ++i)  {
-        const WorkUnit  wu { WORK_TYPE::_timeout_ };
+        const WorkUnit  work_unit { WORK_TYPE::_timeout_ };
 
-        queue_.push(wu);
+        queue_.push(work_unit);
     }
 
     return;
@@ -198,13 +198,16 @@ bool ThreadPool::shutdown() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::run_task() noexcept  {
+bool ThreadPool::run_task()  {
 
     try  {
         const WorkUnit  work_unit { queue_.pop_front(false) }; // No wait
 
-       (work_unit.func)();  // Execute the callable
-       return (true);
+        if (work_unit.work_type == WORK_TYPE::_client_service_)
+            (work_unit.func)();  // Execute the callable
+        else
+            queue_.push(work_unit);  // Put it back
+        return (true);
     }
     catch (const SQEmpty &)  { ; }
     return (false);

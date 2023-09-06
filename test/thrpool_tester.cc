@@ -276,7 +276,7 @@ struct  ParSorter  {
 
         // The pivot point is the first element
         //
-        lower_chunk.splice(lower_chunk.end(),
+        lower_chunk.splice(lower_chunk.begin(),
                            input_data,
                            input_data.begin(),
                            divide_point);
@@ -313,7 +313,7 @@ static void parallel_sort()  {
 
     std::cout << "Running parallel_sort() ..." << std::endl;
 
-    constexpr std::size_t   n { 10 };
+    constexpr std::size_t   n { 10003 };
     std::list<std::size_t>  data (n);
 
     for (auto &iter : data) iter = ::rand();
