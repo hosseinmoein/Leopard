@@ -287,7 +287,7 @@ struct  ParSorter  {
                                this,
                                std::ref(lower_chunk));
 
-        std::list<std::size_t>  higher_chunk;
+        std::list<std::size_t>  higher_chunk = do_sort(input_data);
 
         result.splice(result.end(), higher_chunk);
 
@@ -322,6 +322,7 @@ static void parallel_sort()  {
     std::list<std::size_t>  sorted_data = ps.do_sort(data);
     auto                    data_end = --(sorted_data.cend());
 
+    assert(sorted_data.size() == n);
     for (auto citer = sorted_data.begin(); citer != data_end; )
         assert((*citer <= *(++citer)));
     return;
