@@ -38,10 +38,12 @@ It has the following features:<BR>
    2. The second parameter is a callable reference.
    3. The next parameter(s) is a variadic list of parameters matching your callable parameter list.
    4. `dispatch()` returns a `std::future` of the type of your callable return type.
-4. At any point you can add/subtract threads to/from the pool.
-5. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
-6. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
-7. The destructor calls `shutdown()` and waits until all threads are done running routines.
+4. You can call `run_task()`. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched.
+5. At any point you can add/subtract threads to/from the pool.
+6. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
+7. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
+8. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
+9. The destructor calls `shutdown()` and waits until all threads are done running routines.
 
 ```cpp
 struct   MyClass  {

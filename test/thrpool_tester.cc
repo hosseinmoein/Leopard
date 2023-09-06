@@ -4,10 +4,12 @@
 #include <ThreadPool/ThreadPool.h>
 
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <list>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -140,6 +142,8 @@ static void haphazard()  {
         const std::lock_guard<std::mutex>   lock { GLOCK };
 
         std::cout << "Third batch is done ..." << std::endl;
+        std::cout << "Number of pending tasks: " << thr_pool.pending_tasks()
+                  << std::endl;
     }
     rqt.tv_sec = 10;
     ::nanosleep (&rqt, nullptr);
@@ -235,13 +239,103 @@ static void parallel_accumulate()  {
     return;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+// ----------------------------------------------------------------------------
+
+struct  ParSorter  {
+
+    std::list<std::size_t> do_sort(std::list<std::size_t> &input_data)  {
+
+        if (input_data.size() < 2)  return (input_data);
+
+        std::list<std::size_t>  result;
+
+        // The pivot point is the first element
+        //
+        result.splice(result.begin(), input_data, input_data.begin());
+
+        const std::size_t   partition_val = *(result.begin());
+        auto                divide_point =  // list iterator
+            std::partition(input_data.begin(),
+                           input_data.end(),
+                           [partition_val](const std::size_t &val) -> bool  {
+                               return (val < partition_val);
+                           });
+
+        std::list<std::size_t>  lower_chunk;
+
+        // The pivot point is the first element
+        //
+        lower_chunk.splice(lower_chunk.end(),
+                           input_data,
+                           input_data.begin(),
+                           divide_point);
+
+        std::future<std::list<std::size_t>> lower_fut =
+            thr_pool_.dispatch(false,
+                               &ParSorter::do_sort,
+                               this,
+                               std::ref(lower_chunk));
+
+        std::list<std::size_t>  higher_chunk;
+
+        result.splice(result.end(), higher_chunk);
+
+        // Steal and run tasks to unblock the recursive tasks
+        //
+        while (lower_fut.wait_for(std::chrono::seconds(0)) ==
+                   std::future_status::timeout)
+            thr_pool_.run_task();
+
+        result.splice(result.begin(), lower_fut.get());
+
+        return (result);
+    }
+
+private:
+
+    ThreadPool  thr_pool_ { THREAD_COUNT };
+};
+
+// --------------------------------------
+
+static void parallel_sort()  {
+
+    std::cout << "Running parallel_sort() ..." << std::endl;
+
+    constexpr std::size_t   n { 10003 };
+    std::list<std::size_t>  data (n);
+
+    for (auto &iter : data) iter = ::rand();
+
+    ParSorter               ps;
+    std::list<std::size_t>  sorted_data = ps.do_sort(data);
+    auto                    data_end = --(sorted_data.cend());
+
+    ps.do_sort(data);
+    for (auto citer = sorted_data.begin(); citer != data_end; )
+        assert((*citer <= *(++citer)));
+    return;
+}
+
 // ----------------------------------------------------------------------------
 
 int main (int, char *[])  {
 
-    haphazard();
-    repeating_thread_id();
-    parallel_accumulate();
+    // haphazard();
+    // repeating_thread_id();
+    // parallel_accumulate();
+    parallel_sort();
 
     return (EXIT_SUCCESS);
 }

@@ -166,6 +166,14 @@ ThreadPool::capacity_threads() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
+ThreadPool::size_type
+ThreadPool::pending_tasks() const noexcept  {
+
+    return (queue_.size());
+}
+
+// ----------------------------------------------------------------------------
+
 bool ThreadPool::shutdown() noexcept  {
 
     bool    expected { false };
@@ -190,6 +198,20 @@ bool ThreadPool::shutdown() noexcept  {
 
 // ----------------------------------------------------------------------------
 
+bool ThreadPool::run_task() noexcept  {
+
+    try  {
+        const WorkUnit  work_unit { queue_.pop_front(false) }; // No wait
+
+       (work_unit.func)();  // Execute the callable
+       return (true);
+    }
+    catch (const SQEmpty &)  { ; }
+    return (false);
+}
+
+// ----------------------------------------------------------------------------
+
 bool ThreadPool::thread_routine_() noexcept  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
@@ -201,7 +223,7 @@ bool ThreadPool::thread_routine_() noexcept  {
     while (true)  {
         ++available_threads_;
 
-        const WorkUnit  work_unit { queue_.pop_front() };  // It can wait here
+        const WorkUnit  work_unit { queue_.pop_front() };  // Wait here
 
         --available_threads_;
 

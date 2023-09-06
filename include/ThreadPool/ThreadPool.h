@@ -76,10 +76,17 @@ public:
     dispatch_res_t<F, As ...>
     dispatch(bool immediately, F &&routine, As && ... args);
 
+    // If the pool is not shutdown and there is a pending task, run the one
+    // task on the calling thread.
+    // Return true, if a task was executed, otherwise false.
+    //
+    bool run_task() noexcept;
+
     bool add_thread(size_type thr_num);  // Could be positive or negative
 
     size_type available_threads() const noexcept;
     size_type capacity_threads() const noexcept;
+    size_type pending_tasks() const noexcept; // How many tasks in the queue
 
     bool shutdown() noexcept;
 
