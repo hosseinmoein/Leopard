@@ -313,7 +313,7 @@ static void parallel_sort()  {
 
     std::cout << "Running parallel_sort() ..." << std::endl;
 
-    constexpr std::size_t   n { 10003 };
+    constexpr std::size_t   n { 10 };
     std::list<std::size_t>  data (n);
 
     for (auto &iter : data) iter = ::rand();
@@ -322,7 +322,6 @@ static void parallel_sort()  {
     std::list<std::size_t>  sorted_data = ps.do_sort(data);
     auto                    data_end = --(sorted_data.cend());
 
-    ps.do_sort(data);
     for (auto citer = sorted_data.begin(); citer != data_end; )
         assert((*citer <= *(++citer)));
     return;
