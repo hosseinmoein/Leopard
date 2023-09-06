@@ -243,25 +243,28 @@ static void parallel_accumulate()  {
 
 struct  ParSorter  {
 
-    std::list<std::size_t> do_sort(std::list<std::size_t> &input_data)  {
+    using DataType = std:size_t;
+    uaing ContainerType = std::list<DataType>;
+	
+    ContainerType do_sort(ContainerType &input_data)  {
 
         if (input_data.size() < 2)  return (input_data);
 
-        std::list<std::size_t>  result;
+        ContainerType   result;
 
         // The pivot point is the first element
         //
         result.splice(result.begin(), input_data, input_data.begin());
 
-        const std::size_t   partition_val = *(result.begin());
-        auto                divide_point =  // list iterator
+        const DataType  partition_val = *(result.begin());
+        auto            divide_point =  // list iterator
             std::partition(input_data.begin(),
                            input_data.end(),
-                           [partition_val](const std::size_t &val) -> bool  {
+                           [partition_val](const DataType &val) -> bool  {
                                return (val < partition_val);
                            });
 
-        std::list<std::size_t>  lower_chunk;
+        ContainerType   lower_chunk;
 
         // The pivot point is the first element
         //
@@ -270,17 +273,16 @@ struct  ParSorter  {
                            input_data.begin(),
                            divide_point);
 
-        std::future<std::list<std::size_t>> lower_fut =
+        std::future<ContainerType>  lower_fut =
             thr_pool_.dispatch(false,
                                &ParSorter::do_sort,
                                this,
                                std::ref(lower_chunk));
-
-        std::list<std::size_t>  higher_chunk = do_sort(input_data);
+        ContainerType               higher_chunk = do_sort(input_data);
 
         result.splice(result.end(), higher_chunk);
 
-        // Steal and run tasks to unblock the recursive tasks
+        // Run tasks to unblock the recursive tasks
         //
         while (lower_fut.wait_for(std::chrono::seconds(0)) ==
                    std::future_status::timeout)

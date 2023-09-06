@@ -72,7 +72,7 @@ void ThreadPool::terminate_timed_outs_() noexcept  {
     for (size_type i = 0; i < timeys; ++i)  {
         const WorkUnit  work_unit { WORK_TYPE::_timeout_ };
 
-        queue_.push(work_unit);
+        global_queue_.push(work_unit);
     }
 
     return;
@@ -103,7 +103,11 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
         add_thread(1);
-    queue_.push(work_unit);
+
+    if (local_queue_)  // Is this one of the pool threads
+        local_queue_->push(work_unit);
+    else
+        global_queue_.push(work_unit);
 
     if (timeout_flag_)
         terminate_timed_outs_();
@@ -135,7 +139,7 @@ bool ThreadPool::add_thread(size_type thr_num)  {
         for (size_type i = 0; i < shutys; ++i)  {
             const WorkUnit  work_unit { WORK_TYPE::_terminate_ };
 
-            queue_.push(work_unit);
+            global_queue_.push(work_unit);
         }
     }
     else if (thr_num > 0)  {
@@ -169,7 +173,7 @@ ThreadPool::capacity_threads() const noexcept  {
 ThreadPool::size_type
 ThreadPool::pending_tasks() const noexcept  {
 
-    return (queue_.size());
+    return (global_queue_.size());
 }
 
 // ----------------------------------------------------------------------------
@@ -189,7 +193,7 @@ bool ThreadPool::shutdown() noexcept  {
         for (size_type i = 0; i < capacity; ++i)  {
             const WorkUnit  work_unit { WORK_TYPE::_terminate_ };
 
-            queue_.push(work_unit);
+            global_queue_.push(work_unit);
         }
     }
 
@@ -201,14 +205,21 @@ bool ThreadPool::shutdown() noexcept  {
 bool ThreadPool::run_task() noexcept  {
 
     try  {
-        const WorkUnit  work_unit { queue_.pop_front(false) }; // No wait
+        WorkUnit    work_unit;
+
+        if (local_queue_ && ! local_queue_->empty())  {  // Local pool thread
+            work_unit = local_queue_->front();
+            local_queue_->pop();
+        }
+        else
+            work_unit = global_queue_.pop_front(false); // No wait
 
         if (work_unit.work_type == WORK_TYPE::_client_service_)  {
             (work_unit.func)();  // Execute the callable
             return (true);
         }
-        else
-            queue_.push(work_unit);  // Put it back
+        else if (work_unit.work_type != WORK_TYPE::_undefined_)
+            global_queue_.push(work_unit);  // Put it back
     }
     catch (const SQEmpty &)  { ; }
     return (false);
@@ -224,10 +235,20 @@ bool ThreadPool::thread_routine_() noexcept  {
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
 
     ++capacity_threads_;
+    local_queue_.reset(new LocalQueueType);
     while (true)  {
         ++available_threads_;
 
-        const WorkUnit  work_unit { queue_.pop_front() };  // Wait here
+        WorkUnit    work_unit;
+
+        // First empty the locla queue
+        //
+        if (! local_queue_->empty())  {  // No sync needed since it is local
+            work_unit = local_queue_->front();
+            local_queue_->pop();
+        }
+        else
+            work_unit = global_queue_.pop_front();  // Wait here
 
         --available_threads_;
 

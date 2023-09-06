@@ -36,6 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <condition_variable>
 #include <functional>
 #include <future>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -108,23 +109,32 @@ private:
 
     struct  WorkUnit  {
 
-        WorkUnit() = delete;
+        WorkUnit() = default;
         WorkUnit(const WorkUnit &) = default;
-        WorkUnit(WorkUnit &&) = default;
+        WorkUnit(WorkUnit &&) = default;	
+        WorkUnit &operator=(const WorkUnit &) = default;
+        WorkUnit &operator=(WorkUnit &&) = default;
+
         explicit WorkUnit(WORK_TYPE work_t) : work_type(work_t)  {   }
         WorkUnit(WORK_TYPE work_t, routine_type &&routine)
             : func(std::forward<routine_type>(routine)),
               work_type(work_t)  {   }
 
         routine_type    func {  };
-        const WORK_TYPE work_type;
+        WORK_TYPE       work_type { WORK_TYPE::_undefined_ };
     };
 
     using guard_type = std::lock_guard<std::mutex>;
-    using QueueType = SharedQueue<WorkUnit>;
+    using GlobalQueueType = SharedQueue<WorkUnit>;
+    using LocalQueueType = std::queue<WorkUnit>;
     using ThreadType = std::thread;
 
-    QueueType               queue_ { };
+    GlobalQueueType global_queue_ { };
+
+    // This is handy especially for recursive parallel algorithms
+    //
+    inline static thread_local std::unique_ptr<LocalQueueType> local_queue_;
+
     std::vector<ThreadType> threads_ {  };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
