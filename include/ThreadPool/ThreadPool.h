@@ -80,7 +80,7 @@ public:
     // task on the calling thread.
     // Return true, if a task was executed, otherwise false.
     //
-    bool run_task();
+    bool run_task() noexcept;
 
     bool add_thread(size_type thr_num);  // Could be positive or negative
 

@@ -198,16 +198,17 @@ bool ThreadPool::shutdown() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::run_task()  {
+bool ThreadPool::run_task() noexcept  {
 
     try  {
         const WorkUnit  work_unit { queue_.pop_front(false) }; // No wait
 
-        if (work_unit.work_type == WORK_TYPE::_client_service_)
+        if (work_unit.work_type == WORK_TYPE::_client_service_)  {
             (work_unit.func)();  // Execute the callable
+            return (true);
+        }
         else
             queue_.push(work_unit);  // Put it back
-        return (true);
     }
     catch (const SQEmpty &)  { ; }
     return (false);

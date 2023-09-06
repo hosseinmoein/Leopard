@@ -239,17 +239,6 @@ static void parallel_accumulate()  {
     return;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 // ----------------------------------------------------------------------------
 
 struct  ParSorter  {
@@ -313,7 +302,7 @@ static void parallel_sort()  {
 
     std::cout << "Running parallel_sort() ..." << std::endl;
 
-    constexpr std::size_t   n { 10003 };
+    constexpr std::size_t   n { 1003 };
     std::list<std::size_t>  data (n);
 
     for (auto &iter : data) iter = ::rand();
@@ -332,9 +321,9 @@ static void parallel_sort()  {
 
 int main (int, char *[])  {
 
-    // haphazard();
-    // repeating_thread_id();
-    // parallel_accumulate();
+    haphazard();
+    repeating_thread_id();
+    parallel_accumulate();
     parallel_sort();
 
     return (EXIT_SUCCESS);
