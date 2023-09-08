@@ -243,8 +243,8 @@ static void parallel_accumulate()  {
 
 struct  ParSorter  {
 
-    using DataType = std:size_t;
-    uaing ContainerType = std::list<DataType>;
+    using DataType = std::size_t;
+    using ContainerType = std::list<DataType>;
 	
     ContainerType do_sort(ContainerType &input_data)  {
 

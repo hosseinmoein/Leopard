@@ -44,8 +44,11 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
     : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
 
     threads_.reserve(thr_num * 2);
-    for (size_type i = 0; i < thr_num; ++i)
-        threads_.emplace_back(&ThreadPool::thread_routine_, this);
+    local_queues_.reserve(thr_num * 2);
+    for (size_type i = 0; i < thr_num; ++i)  {
+        local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
+        threads_.emplace_back(&ThreadPool::thread_routine_, this, i);
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -53,9 +56,6 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
 ThreadPool::~ThreadPool()  {
 
     shutdown();
-
-    const guard_type    guard { state_ };
-
     for (auto &routine : threads_)
         if (routine.joinable())
             routine.join();
@@ -104,8 +104,11 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
     if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
         add_thread(1);
 
-    if (local_queue_)  // Is this one of the pool threads
+    if (local_queue_)  {  // Is this one of the pool threads
+        const guard_type    guard { state_ };
+
         local_queue_->push(work_unit);
+    }
     else
         global_queue_.push(work_unit);
 
@@ -144,9 +147,13 @@ bool ThreadPool::add_thread(size_type thr_num)  {
     }
     else if (thr_num > 0)  {
         const guard_type    guard { state_ };
+        const size_type     local_size { size_type(local_queues_.size()) };
 
-        for (size_type i = 0; i < thr_num; ++i)
-            threads_.emplace_back(&ThreadPool::thread_routine_, this);
+        for (size_type i = 0; i < thr_num; ++i)  {
+            local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
+            threads_.emplace_back(&ThreadPool::thread_routine_,
+                                  this, local_size + i);
+        }
     }
 
     return (true);
@@ -207,12 +214,18 @@ bool ThreadPool::run_task() noexcept  {
     try  {
         WorkUnit    work_unit;
 
-        if (local_queue_ && ! local_queue_->empty())  {  // Local pool thread
-            work_unit = local_queue_->front();
-            local_queue_->pop();
+        // First look at the local queue
+        //
+        if (local_queue_)  {
+            const guard_type    guard { state_ };
+
+            if (! local_queue_->empty())  {
+                work_unit = local_queue_->front();
+                local_queue_->pop();
+            }
         }
-        else
-            work_unit = global_queue_.pop_front(false); // No wait
+        if (work_unit.work_type == WORK_TYPE::_undefined_)
+            global_queue_.pop_front(false);  // No wait
 
         if (work_unit.work_type == WORK_TYPE::_client_service_)  {
             (work_unit.func)();  // Execute the callable
@@ -227,7 +240,7 @@ bool ThreadPool::run_task() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::thread_routine_() noexcept  {
+bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
     if (shutdown_flag_.load(std::memory_order_relaxed))
         return (false);
@@ -235,19 +248,23 @@ bool ThreadPool::thread_routine_() noexcept  {
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
 
     ++capacity_threads_;
-    local_queue_.reset(new LocalQueueType);
+    local_queue_ = local_queues_[local_q_idx].get();
     while (true)  {
         ++available_threads_;
 
         WorkUnit    work_unit;
 
-        // First empty the locla queue
+        // First empty the local queue
         //
-        if (! local_queue_->empty())  {  // No sync needed since it is local
-            work_unit = local_queue_->front();
-            local_queue_->pop();
+        {
+            const guard_type    guard { state_ };
+
+            if (! local_queue_->empty())  {
+                work_unit = local_queue_->front();
+                local_queue_->pop();
+            }
         }
-        else
+        if (work_unit.work_type == WORK_TYPE::_undefined_)
             work_unit = global_queue_.pop_front();  // Wait here
 
         --available_threads_;

@@ -95,7 +95,7 @@ private:
 
     // This is the routine that is dispatched for each thread
     //
-    bool thread_routine_() noexcept;
+    bool thread_routine_(size_type local_q_idx) noexcept;
     void terminate_timed_outs_() noexcept;
 
     using routine_type = std::function<void()>;
@@ -127,15 +127,17 @@ private:
     using guard_type = std::lock_guard<std::mutex>;
     using GlobalQueueType = SharedQueue<WorkUnit>;
     using LocalQueueType = std::queue<WorkUnit>;
+    using LocalQueuePtr = std::unique_ptr<LocalQueueType>;
     using ThreadType = std::thread;
 
-    GlobalQueueType global_queue_ { };
+    GlobalQueueType             global_queue_ { };
+    std::vector<LocalQueuePtr>  local_queues_ { };
+    std::vector<ThreadType>     threads_ {  };
 
     // This is handy especially for recursive parallel algorithms
     //
-    inline static thread_local std::unique_ptr<LocalQueueType> local_queue_;
+    inline static thread_local LocalQueueType *local_queue_ { nullptr };
 
-    std::vector<ThreadType> threads_ {  };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
