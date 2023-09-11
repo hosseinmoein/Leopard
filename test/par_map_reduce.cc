@@ -142,17 +142,16 @@ static void par_map_reduce()  {
     fut_maps.reserve(data_size / THREAD_COUNT);
     for (std::size_t i = 0; i < data_size; i += THREAD_COUNT)  {
         fut_maps.push_back(
-            thr_pool.dispatch(
-                false,
-                [data_size](std::size_t i) -> WordCountMap  {
-                    MapFunc  map_func;
+            thr_pool.dispatch(false,
+                              [data_size](std::size_t i) -> WordCountMap  {
+                                  MapFunc  map_func;
 
-                    for (std::size_t j = 0; j < THREAD_COUNT &&
-                             j + i < data_size; ++j)
-                        map_func(data[j + i]);
-                    return (map_func.get_map());
-                },
-                i));
+                                  for (std::size_t j = 0; j < THREAD_COUNT &&
+                                           j + i < data_size; ++j)
+                                      map_func(data[j + i]);
+                                  return (map_func.get_map());
+                              },
+                              i));
     }
 
     /*
@@ -165,10 +164,10 @@ static void par_map_reduce()  {
     */
     std::vector<WordCountMap>   maps;
 
-	maps.reserve(fut_maps.size());
-	for (auto &item : fut_maps)
-		maps.push_back(item.get());
-	
+    maps.reserve(fut_maps.size());
+    for (auto &item : fut_maps)
+        maps.push_back(item.get());
+
     auto  final_map = std::reduce(/*std::execution::par,*/
                                   maps.begin(), maps.end(),
                                   WordCountMap { },
@@ -181,7 +180,8 @@ static void par_map_reduce()  {
 
     std::cout << "Calculation Time: "
               << "Overall Time: "
-              << std::chrono::duration_cast<std::chrono::duration<double>>(last - start).count()
+              << std::chrono::duration_cast
+                     <std::chrono::duration<double>>(last - start).count()
               << std::endl;
     return;
 }
