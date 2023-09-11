@@ -3,14 +3,15 @@
 
 #include <ThreadPool/ThreadPool.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <algorithm>
 #include <numeric>
+#include <random>
+#include <string>
+#include <vector>
+#include <unordered_map>
 
 using namespace hmthrp;
 
@@ -22,50 +23,17 @@ static constexpr std::size_t    THREAD_COUNT = 3;
 
 using WordVector = std::vector<std::string>;
 
-WordVector  vec1 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "silver"
-};
-WordVector  vec2 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "gold"
-};
-WordVector  vec3 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "gold"
-};
-WordVector  vec4 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "silver"
-};
-WordVector  vec5 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "FooFoo"
-};
-WordVector  vec6 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "silverado"
-};
-WordVector  vec7 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "Busch"
-};
-WordVector  vec8 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "Busch"
-};
-WordVector  vec9 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "Busch"
-};
-WordVector  vec10 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "Busch"
-};
-WordVector  vec11 {
-    "string1", "word2", "xyz", "word2", "word1", "wasd", "wasd", "string1"
-    "hype", "word2", "word", "hype", "Hossein"
-};
+WordVector  vec1;
+WordVector  vec2;
+WordVector  vec3;
+WordVector  vec4;
+WordVector  vec5;
+WordVector  vec6;
+WordVector  vec7;
+WordVector  vec8;
+WordVector  vec9;
+WordVector  vec10;
+WordVector  vec11;
 
 std::vector<WordVector> data {
     vec1, vec2, vec3, vec4, vec5, vec6, vec7, vec8, vec9, vec10, vec11
@@ -129,9 +97,32 @@ struct  ReduceFunc  {
 
 // -----------------------------------------------------------------------------
 
+static void generate_data()  {
+
+    constexpr std::size_t   n_data = 100000;
+    constexpr std::size_t   n_len = 3;
+
+    std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
+    std::mt19937    eng { n_data }; // Always generate the same randoms
+
+    for (auto &iter : data)  {
+        iter.reserve(n_data);
+        for (std::size_t i = 0; i < n_data; ++i)  {
+            std::shuffle(universe.begin(), universe.end(), eng);
+            iter.push_back(universe.substr(0, n_len));
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+
 static void par_map_reduce()  {
 
     std::cout << "Running par_map_reduce() ..." << std::endl;
+
+    generate_data();
+
+    std::cout << "Done generating data ..." << std::endl;
 
     ThreadPool  thr_pool (THREAD_COUNT, true, 10);
     const auto  start = std::chrono::high_resolution_clock::now();
