@@ -4,12 +4,10 @@
 #include <ThreadPool/ThreadPool.h>
 
 #include <cassert>
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <list>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -201,132 +199,10 @@ static void repeating_thread_id()  {
 
 // ----------------------------------------------------------------------------
 
-static void parallel_accumulate()  {
-
-    std::cout << "Running parallel_accumulate() ..." << std::endl;
-
-    constexpr std::size_t       n { 10003 };
-    constexpr std::size_t       the_sum { (n * (n + 1)) / 2 };
-    std::vector<std::size_t>    vec (n);
-
-    std::iota(vec.begin(), vec.end(), 1);
-
-    constexpr std::size_t                   block_size { n / THREAD_COUNT };
-    std::vector<std::future<std::size_t>>   futs;
-    auto                                    block_start = vec.begin();
-    ThreadPool                              thr_pool { THREAD_COUNT };
-
-    futs.reserve(THREAD_COUNT - 1);
-    for (std::size_t i = 0; i < (THREAD_COUNT - 1); ++i)  {
-        const auto  block_end { block_start + block_size };
-
-        futs.push_back(
-            thr_pool.dispatch(
-                false,
-                std::accumulate<decltype(block_start), std::size_t>,
-                block_start, block_end, 0));
-        block_start = block_end;
-    }
-
-    // Last result
-    //
-    std::size_t result { std::accumulate(block_start, vec.end(), 0UL) };
-
-    for (std::size_t i = 0; i < futs.size(); ++i)
-        result += futs[i].get();
-
-    assert(result == the_sum);
-    return;
-}
-
-// ----------------------------------------------------------------------------
-
-struct  ParSorter  {
-
-    using DataType = std::size_t;
-    using ContainerType = std::list<DataType>;
-	
-    ContainerType do_sort(ContainerType &input_data)  {
-
-        if (input_data.size() < 2)  return (input_data);
-
-        ContainerType   result;
-
-        // The pivot point is the first element
-        //
-        result.splice(result.begin(), input_data, input_data.begin());
-
-        const DataType  partition_val = *(result.begin());
-        auto            divide_point =  // list iterator
-            std::partition(input_data.begin(),
-                           input_data.end(),
-                           [partition_val](const DataType &val) -> bool  {
-                               return (val < partition_val);
-                           });
-
-        ContainerType   lower_chunk;
-
-        // The pivot point is the first element
-        //
-        lower_chunk.splice(lower_chunk.begin(),
-                           input_data,
-                           input_data.begin(),
-                           divide_point);
-
-        std::future<ContainerType>  lower_fut =
-            thr_pool_.dispatch(false,
-                               &ParSorter::do_sort,
-                               this,
-                               std::ref(lower_chunk));
-        ContainerType               higher_chunk = do_sort(input_data);
-
-        result.splice(result.end(), higher_chunk);
-
-        // Run tasks to unblock the recursive tasks
-        //
-        while (lower_fut.wait_for(std::chrono::seconds(0)) ==
-                   std::future_status::timeout)
-            thr_pool_.run_task();
-
-        result.splice(result.begin(), lower_fut.get());
-
-        return (result);
-    }
-
-private:
-
-    ThreadPool  thr_pool_ { THREAD_COUNT };
-};
-
-// --------------------------------------
-
-static void parallel_sort()  {
-
-    std::cout << "Running parallel_sort() ..." << std::endl;
-
-    constexpr std::size_t   n { 1003 };
-    std::list<std::size_t>  data (n);
-
-    for (auto &iter : data) iter = ::rand();
-
-    ParSorter               ps;
-    std::list<std::size_t>  sorted_data = ps.do_sort(data);
-    auto                    data_end = --(sorted_data.cend());
-
-    assert(sorted_data.size() == n);
-    for (auto citer = sorted_data.begin(); citer != data_end; )
-        assert((*citer <= *(++citer)));
-    return;
-}
-
-// ----------------------------------------------------------------------------
-
 int main (int, char *[])  {
 
     haphazard();
     repeating_thread_id();
-    parallel_accumulate();
-    parallel_sort();
 
     return (EXIT_SUCCESS);
 }

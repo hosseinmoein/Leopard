@@ -10,7 +10,10 @@ PROJECT_INCLUDE_DIR = ../../include
 
 # -----------------------------------------------------------------------------
 
-SRCS = ../test/thrpool_tester.cc
+SRCS = ../test/thrpool_tester.cc \
+       ../test/par_sort_tester.cc \
+       ../test/par_accumulate_tester.cc \
+       ../test/par_map_reduce.cc
 
 HEADERS = $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.h \
           $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.tcc \
@@ -20,7 +23,10 @@ HEADERS = $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.h \
 LIB_NAME =
 TARGET_LIB =
 
-TARGETS += $(LOCAL_BIN_DIR)/thrpool_tester
+TARGETS += $(LOCAL_BIN_DIR)/thrpool_tester \
+           $(LOCAL_BIN_DIR)/par_sort_tester \
+           $(LOCAL_BIN_DIR)/par_accumulate_tester \
+           $(LOCAL_BIN_DIR)/par_map_reduce
 
 # -----------------------------------------------------------------------------
 
@@ -72,16 +78,30 @@ THRPOOL_TESTER_OBJ = $(LOCAL_OBJ_DIR)/thrpool_tester.o
 $(LOCAL_BIN_DIR)/thrpool_tester: $(TARGET_LIB) $(THRPOOL_TESTER_OBJ)
 	$(CXX) -o $@ $(THRPOOL_TESTER_OBJ) $(LIBS)
 
+PAR_SORT_TESTER_OBJ = $(LOCAL_OBJ_DIR)/par_sort_tester.o
+$(LOCAL_BIN_DIR)/par_sort_tester: $(TARGET_LIB) $(PAR_SORT_TESTER_OBJ)
+	$(CXX) -o $@ $(PAR_SORT_TESTER_OBJ) $(LIBS)
+
+PAR_ACCUMULATE_TESTER_OBJ = $(LOCAL_OBJ_DIR)/par_accumulate_tester.o
+$(LOCAL_BIN_DIR)/par_accumulate_tester: $(TARGET_LIB) $(PAR_ACCUMULATE_TESTER_OBJ)
+	$(CXX) -o $@ $(PAR_ACCUMULATE_TESTER_OBJ) $(LIBS)
+
+PAR_MAP_REDUCE_OBJ = $(LOCAL_OBJ_DIR)/par_map_reduce.o
+$(LOCAL_BIN_DIR)/par_map_reduce: $(TARGET_LIB) $(PAR_MAP_REDUCE_OBJ)
+	$(CXX) -o $@ $(PAR_MAP_REDUCE_OBJ) $(LIBS)
+
 # -----------------------------------------------------------------------------
 
 depend:
 	makedepend $(CXXFLAGS) -Y $(SRCS)
 
 clean:
-	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ)
+	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ) $(PAR_SORT_TESTER_OBJ) \
+          $(PAR_ACCUMULATE_TESTER_OBJ) $(PAR_MAP_REDUCE_OBJ)
 
 clobber:
-	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ)
+	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ) $(PAR_SORT_TESTER_OBJ) \
+          $(PAR_ACCUMULATE_TESTER_OBJ) $(PAR_MAP_REDUCE_OBJ)
 
 install_lib:
 	cp -pf $(TARGET_LIB) $(PROJECT_LIB_DIR)/.
