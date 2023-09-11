@@ -23,21 +23,29 @@ static constexpr std::size_t    THREAD_COUNT = 3;
 
 using WordVector = std::vector<std::string>;
 
-WordVector  vec1;
-WordVector  vec2;
-WordVector  vec3;
-WordVector  vec4;
-WordVector  vec5;
-WordVector  vec6;
-WordVector  vec7;
-WordVector  vec8;
-WordVector  vec9;
-WordVector  vec10;
-WordVector  vec11;
+// A 1000 vectors of string vectors
+//
+std::vector<WordVector> data (1000);
 
-std::vector<WordVector> data {
-    vec1, vec2, vec3, vec4, vec5, vec6, vec7, vec8, vec9, vec10, vec11
-};
+// -----------------------------------------------------------------------------
+
+static void generate_data()  {
+
+    constexpr std::size_t   n_data { 10000 };
+    constexpr std::size_t   n_len { 7 };
+
+    // std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
+    std::string     universe { "QWERTYU" };
+    std::mt19937    eng { n_data }; // Always generate the same randoms
+
+    for (auto &iter : data)  {
+        iter.reserve(n_data);
+        for (std::size_t i = 0; i < n_data; ++i)  {
+            std::shuffle(universe.begin(), universe.end(), eng);
+            iter.push_back(universe.substr(0, n_len));
+        }
+    }
+}
 
 // -----------------------------------------------------------------------------
 
@@ -94,26 +102,6 @@ struct  ReduceFunc  {
         return (wmap);
     }
 };
-
-// -----------------------------------------------------------------------------
-
-static void generate_data()  {
-
-    constexpr std::size_t   n_data { 100000 };
-    constexpr std::size_t   n_len { 7 };
-
-    // std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
-    std::string     universe { "QWERTYU" };
-    std::mt19937    eng { n_data }; // Always generate the same randoms
-
-    for (auto &iter : data)  {
-        iter.reserve(n_data);
-        for (std::size_t i = 0; i < n_data; ++i)  {
-            std::shuffle(universe.begin(), universe.end(), eng);
-            iter.push_back(universe.substr(0, n_len));
-        }
-    }
-}
 
 // -----------------------------------------------------------------------------
 
