@@ -99,10 +99,11 @@ struct  ReduceFunc  {
 
 static void generate_data()  {
 
-    constexpr std::size_t   n_data = 100000;
-    constexpr std::size_t   n_len = 3;
+    constexpr std::size_t   n_data { 100000 };
+    constexpr std::size_t   n_len { 7 };
 
-    std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
+    // std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
+    std::string     universe { "QWERTYU" };
     std::mt19937    eng { n_data }; // Always generate the same randoms
 
     for (auto &iter : data)  {
