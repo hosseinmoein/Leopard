@@ -43,7 +43,7 @@ using namespace hmthrp;
 
 // -----------------------------------------------------------------------------
 
-static constexpr std::size_t    THREAD_COUNT = 3;
+static constexpr std::size_t    THREAD_COUNT = 20;
 
 // -----------------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ std::vector<WordVector> data (1000);
 
 static void generate_data()  {
 
-    constexpr std::size_t   n_data { 10000 };
+    constexpr std::size_t   n_data { 50000 };
     constexpr std::size_t   n_len { 7 };
 
     // std::string     universe { "QWERTYUIOPASDFGHJKLZXCVBNM" };
@@ -144,15 +144,18 @@ static void par_map_reduce()  {
 
     std::vector<std::future<WordCountMap>>  fut_maps;
     const auto                              data_size = data.size();
+    const auto                              m_chunk_size =
+        data_size / THREAD_COUNT;
 
-    fut_maps.reserve(data_size / THREAD_COUNT);
-    for (std::size_t i = 0; i < data_size; i += THREAD_COUNT)  {
+    fut_maps.reserve(m_chunk_size);
+    for (std::size_t i = 0; i < data_size; i += m_chunk_size)  {
         fut_maps.push_back(
             thr_pool.dispatch(false,
-                              [data_size](std::size_t i) -> WordCountMap  {
+                              [data_size, m_chunk_size]
+                              (std::size_t i) -> WordCountMap  {
                                   MapFunc  map_func;
 
-                                  for (std::size_t j = 0; j < THREAD_COUNT &&
+                                  for (std::size_t j = 0; j < m_chunk_size &&
                                            j + i < data_size; ++j)
                                       map_func(data[j + i]);
                                   return (map_func.get_map());
@@ -160,29 +163,50 @@ static void par_map_reduce()  {
                               i));
     }
 
-    /*
-    ReduceFunc  reduce_func;
-
-    for (std::size_t i = 0; i < fut_maps.size() - 1; i += 2)
-        reduce_func(fut_maps[i].get(), fut_maps [i + 1].get());
-    for (const auto &item : reduce_func.get_map())
-        std::cout << item.first << ": " << item.second << std::endl;
-    */
     std::vector<WordCountMap>   maps;
 
     maps.reserve(fut_maps.size());
     for (auto &item : fut_maps)
         maps.push_back(item.get());
 
-    auto  final_map = std::reduce(/*std::execution::par,*/
-                                  maps.begin(), maps.end(),
-                                  WordCountMap { },
-                                  ReduceFunc { });
+    const auto  map_size = maps.size();
+    const auto  r_chunk_size = map_size / THREAD_COUNT;
+
+    fut_maps.clear();
+    for (std::size_t i = 0; i < map_size; i += r_chunk_size)  {
+        fut_maps.push_back(
+            thr_pool.dispatch(false,
+                              [&maps, r_chunk_size]
+                              (std::size_t i) -> WordCountMap  {
+                                  const std::size_t     end =
+                                      ((i + r_chunk_size) <= maps.size())
+                                          ? i + r_chunk_size
+                                          : maps.size();
+                                  const WordCountMap    wmap =
+                                      std::reduce(maps.begin() + i,
+                                                  maps.begin() + end,
+                                                  WordCountMap { },
+                                                  ReduceFunc { });
+
+                                  return (wmap);
+                              },
+                              i));
+    }
+
+    std::vector<WordCountMap>   maps2;
+
+    maps2.reserve(fut_maps.size());
+    for (auto &item : fut_maps)
+        maps2.push_back(item.get());
+
+    const auto  final_map = std::reduce(/*std::execution::par,*/
+                                        maps2.begin(), maps2.end(),
+                                        WordCountMap { },
+                                        ReduceFunc { });
+    const auto  last = std::chrono::high_resolution_clock::now();
 
     for (const auto &item : final_map)
         std::cout << item.first << ": " << item.second << std::endl;
-
-    const auto  last = std::chrono::high_resolution_clock::now();
 
     std::cout << "Calculation Time: "
               << "Overall Time: "
