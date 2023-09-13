@@ -147,7 +147,7 @@ static void par_map_reduce()  {
     const auto                              m_chunk_size =
         data_size / THREAD_COUNT;
 
-    fut_maps.reserve(m_chunk_size);
+    fut_maps.reserve(THREAD_COUNT + 1);
     for (std::size_t i = 0; i < data_size; i += m_chunk_size)  {
         fut_maps.push_back(
             thr_pool.dispatch(false,

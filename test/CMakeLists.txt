@@ -25,3 +25,10 @@ target_compile_options(par_map_reduce
     PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
 )
 add_test(NAME par_map_reduce COMMAND par_map_reduce)
+
+add_executable(par_partial_sum par_partial_sum.cc)
+target_link_libraries(par_partial_sum PRIVATE Threads::Threads)
+target_compile_options(par_partial_sum
+    PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+)
+add_test(NAME par_partial_sum COMMAND par_partial_sum)
