@@ -32,3 +32,10 @@ target_compile_options(par_partial_sum
     PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
 )
 add_test(NAME par_partial_sum COMMAND par_partial_sum)
+
+add_executable(par_adjcent_diff par_adjcent_diff.cc)
+target_link_libraries(par_adjcent_diff PRIVATE Threads::Threads)
+target_compile_options(par_adjcent_diff
+    PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+)
+add_test(NAME par_adjcent_diff COMMAND par_adjcent_diff)
