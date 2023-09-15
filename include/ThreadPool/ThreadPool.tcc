@@ -46,6 +46,12 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
     threads_.reserve(thr_num * 2);
     for (size_type i = 0; i < thr_num; ++i)
         threads_.emplace_back(&ThreadPool::thread_routine_, this);
+
+    // Make sure at least one thread is running before we exit the constructor
+    //
+    if (thr_num > 0)
+        while (capacity_threads() == 0)
+            std::this_thread::yield();
 }
 
 // ----------------------------------------------------------------------------
@@ -65,9 +71,7 @@ ThreadPool::~ThreadPool()  {
 
 void ThreadPool::terminate_timed_outs_() noexcept  {
 
-    const size_type timeys {
-        capacity_threads_.load(std::memory_order_relaxed)
-    };
+    const size_type timeys { capacity_threads() };
 
     for (size_type i = 0; i < timeys; ++i)  {
         const WorkUnit  work_unit { WORK_TYPE::_timeout_ };
@@ -84,9 +88,9 @@ template<typename F, typename ... As>
 ThreadPool::dispatch_res_t<F, As ...>
 ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown() || (capacity_threads() == 0 && ! immediately))
         throw std::runtime_error("ThreadPool::dispatch(): "
-                                 "The thread pool is shutdown.");
+                                 "Thread-pool has 0 thread capacity.");
 
     using return_type =
         std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
@@ -101,7 +105,7 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
         WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
     };
 
-    if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
+    if (immediately && available_threads() == 0)
         add_thread(1);
 
     if (local_queue_)  // Is this one of the pool threads
@@ -118,21 +122,20 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
 bool ThreadPool::add_thread(size_type thr_num)  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown())
         throw std::runtime_error("ThreadPool::add_thread(): "
                                  "The thread pool is shutdown.");
 
     if (thr_num < 0)  {
         const size_type shutys { ::abs(thr_num) };
 
-        if (shutys >= capacity_threads_.load(std::memory_order_relaxed))  {
+        if (shutys > capacity_threads())  {
             char    err[1024];
 
             ::snprintf(err, 1023,
                        "ThreadPool::add_thread(): Cannot subtract "
                        "'%d' threads from the pool with capacity '%d'",
-                       shutys,
-                       capacity_threads_.load(std::memory_order_relaxed));
+                       shutys, capacity_threads());
             throw std::runtime_error(err);
         }
 
@@ -170,6 +173,14 @@ ThreadPool::capacity_threads() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
+bool
+ThreadPool::is_shutdown() const noexcept  {
+
+    return (shutdown_flag_.load(std::memory_order_relaxed));
+}
+
+// ----------------------------------------------------------------------------
+
 ThreadPool::size_type
 ThreadPool::pending_tasks() const noexcept  {
 
@@ -185,10 +196,7 @@ bool ThreadPool::shutdown() noexcept  {
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
-
-        const size_type capacity {
-            capacity_threads_.load(std::memory_order_relaxed)
-        };
+        const size_type capacity { capacity_threads() };
 
         for (size_type i = 0; i < capacity; ++i)  {
             const WorkUnit  work_unit { WORK_TYPE::_terminate_ };
@@ -229,7 +237,7 @@ bool ThreadPool::run_task() noexcept  {
 
 bool ThreadPool::thread_routine_() noexcept  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown())
         return (false);
 
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
@@ -260,9 +268,9 @@ bool ThreadPool::thread_routine_() noexcept  {
                 break;
         }
         else if (work_unit.work_type == WORK_TYPE::_client_service_)  {
-            (work_unit.func)();  // Execute the callable
             if (timeout_flag_)
                 last_busy_time = ::time(nullptr);
+            (work_unit.func)();  // Execute the callable
         }
     }
     --capacity_threads_;

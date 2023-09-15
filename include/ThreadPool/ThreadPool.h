@@ -88,6 +88,7 @@ public:
     size_type available_threads() const noexcept;
     size_type capacity_threads() const noexcept;
     size_type pending_tasks() const noexcept; // How many tasks in the queue
+    bool is_shutdown() const noexcept; // How many tasks in the queue
 
     bool shutdown() noexcept;
 

@@ -35,6 +35,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ctime>
 #include <iostream>
 #include <numeric>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -206,9 +207,10 @@ static void repeating_thread_id()  {
 
     std::cout << "Running repeating_thread_id() ..." << std::endl;
 
-    ThreadPool  thr_pool { THREAD_COUNT };
+    constexpr std::size_t   n = 50;
+    ThreadPool              thr_pool { THREAD_COUNT };
 
-    for (std::size_t i = 0; i < 50; ++i)
+    for (std::size_t i = 0; i < n; ++i)
         thr_pool.dispatch(
             false,
             [](std::size_t i) -> void {
@@ -219,6 +221,45 @@ static void repeating_thread_id()  {
                           << std::endl;
             },
             i);
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
+static void zero_thread_test()  {
+
+    std::cout << "Running zero_thread_test() ..." << std::endl;
+
+    ThreadPool  tp0 (0);
+    ThreadPool  tp5 (5);
+    ThreadPool  tp10 (10);
+
+    try  {
+        tp0.dispatch(false,
+                     []() -> void {
+                         std::cout << "From Lambda 1" << std::endl;
+                     });
+        std::cout << "ERROR: We must not print this line 1" << std::endl;
+    }
+    catch (const std::runtime_error &)  { ; }
+
+    auto    fut = tp0.dispatch(true,
+                               []() -> void {
+                                   std::cout << "From Lambda 2" << std::endl;
+                               });
+
+    fut.get();
+    tp0.add_thread(-1);
+
+	tp5.shutdown();
+    try  {
+        tp5.dispatch(false,
+                     []() -> void {
+                         std::cout << "From Lambda 3" << std::endl;
+                     });
+        std::cout << "ERROR: We must not print this line 2" << std::endl;
+    }
+    catch (const std::runtime_error &)  { ; }
 
     return;
 }
@@ -229,6 +270,7 @@ int main (int, char *[])  {
 
     haphazard();
     repeating_thread_id();
+    zero_thread_test();
 
     return (EXIT_SUCCESS);
 }
