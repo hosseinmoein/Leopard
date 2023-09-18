@@ -39,3 +39,10 @@ target_compile_options(par_adjcent_diff
     PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
 )
 add_test(NAME par_adjcent_diff COMMAND par_adjcent_diff)
+
+add_executable(par_dot_product par_dot_product.cc)
+target_link_libraries(par_dot_product PRIVATE Threads::Threads)
+target_compile_options(par_dot_product
+    PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>
+)
+add_test(NAME par_dot_product COMMAND par_dot_product)

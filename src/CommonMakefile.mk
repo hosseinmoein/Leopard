@@ -15,7 +15,8 @@ SRCS = ../test/thrpool_tester.cc \
        ../test/par_accumulate_tester.cc \
        ../test/par_map_reduce.cc \
        ../test/par_partial_sum.cc \
-       ../test/par_adjcent_diff.cc
+       ../test/par_adjcent_diff.cc \
+       ../test/par_dot_product.cc
 
 HEADERS = $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.h \
           $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.tcc \
@@ -30,7 +31,8 @@ TARGETS += $(LOCAL_BIN_DIR)/thrpool_tester \
            $(LOCAL_BIN_DIR)/par_accumulate_tester \
            $(LOCAL_BIN_DIR)/par_map_reduce \
            $(LOCAL_BIN_DIR)/par_partial_sum \
-           $(LOCAL_BIN_DIR)/par_adjcent_diff
+           $(LOCAL_BIN_DIR)/par_adjcent_diff \
+           $(LOCAL_BIN_DIR)/par_dot_product
 
 # -----------------------------------------------------------------------------
 
@@ -102,20 +104,20 @@ PAR_ADJCENT_DIFF_OBJ = $(LOCAL_OBJ_DIR)/par_adjcent_diff.o
 $(LOCAL_BIN_DIR)/par_adjcent_diff: $(PAR_ADJCENT_DIFF_OBJ)
 	$(CXX) -o $@ $(PAR_ADJCENT_DIFF_OBJ) $(LIBS)
 
+PAR_DOT_PRODUCT_OBJ = $(LOCAL_OBJ_DIR)/par_dot_product.o
+$(LOCAL_BIN_DIR)/par_dot_product: $(PAR_DOT_PRODUCT_OBJ)
+	$(CXX) -o $@ $(PAR_DOT_PRODUCT_OBJ) $(LIBS)
+
 # -----------------------------------------------------------------------------
 
 depend:
 	makedepend $(CXXFLAGS) -Y $(SRCS)
 
-clean:
-	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ) $(PAR_SORT_TESTER_OBJ) \
-          $(PAR_ACCUMULATE_TESTER_OBJ) $(PAR_MAP_REDUCE_OBJ) \
-          $(PAR_PARTIAL_SUM_OBJ) $(PAR_ADJCENT_DIFF_OBJ)
-
 clobber:
 	rm -f $(LIB_OBJS) $(TARGETS) $(THRPOOL_TESTER_OBJ) $(PAR_SORT_TESTER_OBJ) \
           $(PAR_ACCUMULATE_TESTER_OBJ) $(PAR_MAP_REDUCE_OBJ) \
-          $(PAR_PARTIAL_SUM_OBJ) $(PAR_ADJCENT_DIFF_OBJ)
+          $(PAR_PARTIAL_SUM_OBJ) $(PAR_ADJCENT_DIFF_OBJ) \
+          $(PAR_DOT_PRODUCT_OBJ)
 
 install_lib:
 	cp -pf $(TARGET_LIB) $(PROJECT_LIB_DIR)/.
