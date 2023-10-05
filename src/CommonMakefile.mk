@@ -18,10 +18,10 @@ SRCS = ../test/thrpool_tester.cc \
        ../test/par_adjcent_diff.cc \
        ../test/par_dot_product.cc
 
-HEADERS = $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.h \
-          $(LOCAL_INCLUDE_DIR)/ThreadPool/SharedQueue.tcc \
-          $(LOCAL_INCLUDE_DIR)/ThreadPool/ThreadPool.h \
-          $(LOCAL_INCLUDE_DIR)/ThreadPool/ThreadPool.tcc
+HEADERS = $(LOCAL_INCLUDE_DIR)/Leopard/SharedQueue.h \
+          $(LOCAL_INCLUDE_DIR)/Leopard/SharedQueue.tcc \
+          $(LOCAL_INCLUDE_DIR)/Leopard/ThreadPool.h \
+          $(LOCAL_INCLUDE_DIR)/Leopard/ThreadPool.tcc
 
 LIB_NAME =
 TARGET_LIB =
@@ -76,7 +76,7 @@ PRE_BUILD:
 	mkdir -p $(LOCAL_BIN_DIR)
 	mkdir -p $(LOCAL_OBJ_DIR)
 	mkdir -p $(PROJECT_LIB_DIR)
-	mkdir -p $(PROJECT_INCLUDE_DIR)/ThreadPool
+	mkdir -p $(PROJECT_INCLUDE_DIR)/Leopard
 
 $(TARGET_LIB):
 
