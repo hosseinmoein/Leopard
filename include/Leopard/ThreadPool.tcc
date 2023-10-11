@@ -92,15 +92,15 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
         throw std::runtime_error("ThreadPool::dispatch(): "
                                  "Thread-pool has 0 thread capacity.");
 
-    using return_type =
+    using task_return_t =
         std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
-    using future_type = ThreadPool::dispatch_res_t<F, As ...>;
+    using future_t = dispatch_res_t<F, As ...>;
 
     auto            callable  {
-        std::make_shared<std::packaged_task<return_type()>>
+        std::make_shared<std::packaged_task<task_return_t()>>
             (std::bind(std::forward<F>(routine), std::forward<As>(args) ...))
     };
-    future_type     return_fut { callable->get_future() };
+    future_t        return_fut { callable->get_future() };
     const WorkUnit  work_unit {
         WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
     };
@@ -120,6 +120,39 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
 // ----------------------------------------------------------------------------
 
+template<typename F, typename I, typename ... As>
+ThreadPool::loop_res_t<F, I>
+ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
+
+    using task_return_t =
+        std::invoke_result_t<std::decay_t<F>,
+                             std::decay_t<I>,
+                             std::decay_t<I>,
+                             std::decay_t<As> ...>;
+    using future_t = std::future<task_return_t>;
+
+    const size_type         n { std::distance(begin, end) };
+    const size_type         block_size { n / capacity_threads() };
+    std::vector<future_t>   ret;
+
+    ret.reserve(capacity_threads() + 1);
+    for (size_type i = 0; i < n; i += block_size)  {
+        const size_type block_end {
+            ((i + block_size) > n) ? n : i + block_size
+        };
+
+        ret.push_back(dispatch(false,
+                               routine,
+                               begin + i,
+                               begin + block_end,
+                               std::forward<As>(args) ...));
+    }
+
+    return (ret);
+}
+
+// ----------------------------------------------------------------------------
+
 bool ThreadPool::add_thread(size_type thr_num)  {
 
     if (is_shutdown())
@@ -134,7 +167,7 @@ bool ThreadPool::add_thread(size_type thr_num)  {
 
             ::snprintf(err, 1023,
                        "ThreadPool::add_thread(): Cannot subtract "
-                       "'%d' threads from the pool with capacity '%d'",
+                       "'%ld' threads from the pool with capacity '%ld'",
                        shutys, capacity_threads());
             throw std::runtime_error(err);
         }
