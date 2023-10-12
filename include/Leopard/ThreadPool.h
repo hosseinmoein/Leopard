@@ -150,8 +150,6 @@ private:
     std::vector<LocalQueuePtr>  local_queues_ { };
     std::vector<ThreadType>     threads_ {  };
 
-    // This is handy especially for recursive parallel algorithms
-    //
     inline static thread_local LocalQueueType *local_queue_ { nullptr };
 
     std::atomic<size_type>  available_threads_ { 0 };

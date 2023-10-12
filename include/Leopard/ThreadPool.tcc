@@ -35,6 +35,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdexcept>
 #include <type_traits>
 
+#include <iostream>
+
 // ----------------------------------------------------------------------------
 
 namespace hmthrp
@@ -45,8 +47,11 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
     : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
 
     threads_.reserve(thr_num * 2);
-    for (size_type i = 0; i < thr_num; ++i)
-        threads_.emplace_back(&ThreadPool::thread_routine_, this);
+    local_queues_.reserve(thr_num * 2);
+    for (size_type i = 0; i < thr_num; ++i)  {
+        local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
+        threads_.emplace_back(&ThreadPool::thread_routine_, this, i);
+    }
 
     // Make sure at least one thread is running before we exit the constructor
     //

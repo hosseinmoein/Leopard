@@ -90,7 +90,6 @@ struct  ParSorter  {
         // Run tasks to unblock the recursive tasks
         //
         while (lower_fut.wait_for(std::chrono::seconds(0)) ==
-
                    std::future_status::timeout)
             thr_pool_.run_task();
 
