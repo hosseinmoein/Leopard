@@ -11,7 +11,7 @@ modification, are permitted provided that the following conditions are met:
 * Redistributions in binary form must reproduce the above copyright
   notice, this list of conditions and the following disclaimer in the
   documentation and/or other materials provided with the distribution.
-* Neither the name of Hossein Moein and/or the ThreadPool nor the
+* Neither the name of Hossein Moein and/or the Leopard nor the
   names of its contributors may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
@@ -27,12 +27,13 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <ThreadPool/ThreadPool.h>
+#include <Leopard/ThreadPool.h>
 
 #include <cstdlib>
 #include <ctime>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 
 // ----------------------------------------------------------------------------
 
@@ -44,11 +45,14 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
     : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
 
     threads_.reserve(thr_num * 2);
-    local_queues_.reserve(thr_num * 2);
-    for (size_type i = 0; i < thr_num; ++i)  {
-        local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
-        threads_.emplace_back(&ThreadPool::thread_routine_, this, i);
-    }
+    for (size_type i = 0; i < thr_num; ++i)
+        threads_.emplace_back(&ThreadPool::thread_routine_, this);
+
+    // Make sure at least one thread is running before we exit the constructor
+    //
+    if (thr_num > 0)
+        while (capacity_threads() == 0)
+            std::this_thread::yield();
 }
 
 // ----------------------------------------------------------------------------
@@ -65,9 +69,7 @@ ThreadPool::~ThreadPool()  {
 
 void ThreadPool::terminate_timed_outs_() noexcept  {
 
-    const size_type timeys {
-        capacity_threads_.load(std::memory_order_relaxed)
-    };
+    const size_type timeys { capacity_threads() };
 
     for (size_type i = 0; i < timeys; ++i)  {
         const WorkUnit  work_unit { WORK_TYPE::_timeout_ };
@@ -84,24 +86,24 @@ template<typename F, typename ... As>
 ThreadPool::dispatch_res_t<F, As ...>
 ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown() || (capacity_threads() == 0 && ! immediately))
         throw std::runtime_error("ThreadPool::dispatch(): "
-                                 "The thread pool is shutdown.");
+                                 "Thread-pool has 0 thread capacity.");
 
-    using return_type =
+    using task_return_t =
         std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
-    using future_type = ThreadPool::dispatch_res_t<F, As ...>;
+    using future_t = dispatch_res_t<F, As ...>;
 
     auto            callable  {
-        std::make_shared<std::packaged_task<return_type()>>
+        std::make_shared<std::packaged_task<task_return_t()>>
             (std::bind(std::forward<F>(routine), std::forward<As>(args) ...))
     };
-    future_type     return_fut { callable->get_future() };
+    future_t        return_fut { callable->get_future() };
     const WorkUnit  work_unit {
         WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
     };
 
-    if (immediately && available_threads_.load(std::memory_order_relaxed) == 0)
+    if (immediately && available_threads() == 0)
         add_thread(1);
 
     if (local_queue_)  {  // Is this one of the pool threads
@@ -119,23 +121,61 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 
 // ----------------------------------------------------------------------------
 
+template<typename F, typename I, typename ... As>
+ThreadPool::loop_res_t<F, I, As ...>
+ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
+
+    using task_return_t =
+        std::invoke_result_t<std::decay_t<F>,
+                             std::decay_t<I>,
+                             std::decay_t<I>,
+                             std::decay_t<As> ...>;
+    using future_t = std::future<task_return_t>;
+
+    size_type   n { 0 };
+
+	if constexpr (std::is_integral<I>::value)
+        n = end - begin;
+    else
+        n = std::distance(begin, end);
+	
+    const size_type         block_size { n / capacity_threads() };
+    std::vector<future_t>   ret;
+
+    ret.reserve(capacity_threads() + 1);
+    for (size_type i = 0; i < n; i += block_size)  {
+        const size_type block_end {
+            ((i + block_size) > n) ? n : i + block_size
+        };
+
+        ret.push_back(dispatch(false,
+                               routine,
+                               begin + i,
+                               begin + block_end,
+                               std::forward<As>(args) ...));
+    }
+
+    return (ret);
+}
+
+// ----------------------------------------------------------------------------
+
 bool ThreadPool::add_thread(size_type thr_num)  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown())
         throw std::runtime_error("ThreadPool::add_thread(): "
                                  "The thread pool is shutdown.");
 
     if (thr_num < 0)  {
         const size_type shutys { ::abs(thr_num) };
 
-        if (shutys >= capacity_threads_.load(std::memory_order_relaxed))  {
+        if (shutys > capacity_threads())  {
             char    err[1024];
 
             ::snprintf(err, 1023,
                        "ThreadPool::add_thread(): Cannot subtract "
-                       "'%d' threads from the pool with capacity '%d'",
-                       shutys,
-                       capacity_threads_.load(std::memory_order_relaxed));
+                       "'%ld' threads from the pool with capacity '%ld'",
+                       shutys, capacity_threads());
             throw std::runtime_error(err);
         }
 
@@ -177,6 +217,14 @@ ThreadPool::capacity_threads() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
+bool
+ThreadPool::is_shutdown() const noexcept  {
+
+    return (shutdown_flag_.load(std::memory_order_relaxed));
+}
+
+// ----------------------------------------------------------------------------
+
 ThreadPool::size_type
 ThreadPool::pending_tasks() const noexcept  {
 
@@ -192,10 +240,7 @@ bool ThreadPool::shutdown() noexcept  {
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
-
-        const size_type capacity {
-            capacity_threads_.load(std::memory_order_relaxed)
-        };
+        const size_type capacity { capacity_threads() };
 
         for (size_type i = 0; i < capacity; ++i)  {
             const WorkUnit  work_unit { WORK_TYPE::_terminate_ };
@@ -242,7 +287,7 @@ bool ThreadPool::run_task() noexcept  {
 
 bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
-    if (shutdown_flag_.load(std::memory_order_relaxed))
+    if (is_shutdown())
         return (false);
 
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
@@ -277,9 +322,9 @@ bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
                 break;
         }
         else if (work_unit.work_type == WORK_TYPE::_client_service_)  {
-            (work_unit.func)();  // Execute the callable
             if (timeout_flag_)
                 last_busy_time = ::time(nullptr);
+            (work_unit.func)();  // Execute the callable
         }
     }
     --capacity_threads_;

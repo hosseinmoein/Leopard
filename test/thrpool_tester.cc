@@ -1,16 +1,41 @@
 // Hossein Moein
 // August 9, 2023
+/*
+Copyright (c) 2023-2028, Hossein Moein
+All rights reserved.
 
-#include <ThreadPool/ThreadPool.h>
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+* Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+* Neither the name of Hossein Moein and/or the Leopard nor the
+  names of its contributors may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL Hossein Moein BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#include <Leopard/ThreadPool.h>
 
 #include <cassert>
-#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <list>
 #include <numeric>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -182,9 +207,10 @@ static void repeating_thread_id()  {
 
     std::cout << "Running repeating_thread_id() ..." << std::endl;
 
-    ThreadPool  thr_pool { THREAD_COUNT };
+    constexpr std::size_t   n = 50;
+    ThreadPool              thr_pool { THREAD_COUNT };
 
-    for (std::size_t i = 0; i < 50; ++i)
+    for (std::size_t i = 0; i < n; ++i)
         thr_pool.dispatch(
             false,
             [](std::size_t i) -> void {
@@ -195,15 +221,54 @@ static void repeating_thread_id()  {
                           << std::endl;
             },
             i);
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
+static void zero_thread_test()  {
+
+    std::cout << "Running zero_thread_test() ..." << std::endl;
+
+    ThreadPool  tp0 (0);
+    ThreadPool  tp5 (5);
+    ThreadPool  tp10 (10);
+
+    try  {
+        tp0.dispatch(false,
+                     []() -> void {
+                         std::cout << "From Lambda 1" << std::endl;
+                     });
+        std::cout << "ERROR: We must not print this line 1" << std::endl;
+    }
+    catch (const std::runtime_error &)  { ; }
+
+    auto    fut = tp0.dispatch(true,
+                               []() -> void {
+                                   std::cout << "From Lambda 2" << std::endl;
+                               });
+
+    fut.get();
+    tp0.add_thread(-1);
+
+    tp5.shutdown();
+    try  {
+        tp5.dispatch(false,
+                     []() -> void {
+                         std::cout << "From Lambda 3" << std::endl;
+                     });
+        std::cout << "ERROR: We must not print this line 2" << std::endl;
+    }
+    catch (const std::runtime_error &)  { ; }
 
     return;
 }
 
 // ----------------------------------------------------------------------------
 
-static void parallel_accumulate()  {
+static void parallel_loop_test()  {
 
-    std::cout << "Running parallel_accumulate() ..." << std::endl;
+    std::cout << "Running parallel_loop_test() ..." << std::endl;
 
     constexpr std::size_t       n { 10003 };
     constexpr std::size_t       the_sum { (n * (n + 1)) / 2 };
@@ -211,112 +276,39 @@ static void parallel_accumulate()  {
 
     std::iota(vec.begin(), vec.end(), 1);
 
-    constexpr std::size_t                   block_size { n / THREAD_COUNT };
-    std::vector<std::future<std::size_t>>   futs;
-    auto                                    block_start = vec.begin();
-    ThreadPool                              thr_pool { THREAD_COUNT };
+    auto        func =
+        [](const auto &begin, const auto &end) -> std::size_t  {
+            std::size_t sum { 0 };
 
-    futs.reserve(THREAD_COUNT - 1);
-    for (std::size_t i = 0; i < (THREAD_COUNT - 1); ++i)  {
-        const auto  block_end { block_start + block_size };
+            for (auto iter = begin; iter != end; ++iter)
+                sum += *iter;
+            return (sum);
+        };
+    ThreadPool  thr_pool { 5 };
+    auto        futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
 
-        futs.push_back(
-            thr_pool.dispatch(
-                false,
-                std::accumulate<decltype(block_start), std::size_t>,
-                block_start, block_end, 0));
-        block_start = block_end;
-    }
+    std::size_t result {0};
 
-    // Last result
-    //
-    std::size_t result { std::accumulate(block_start, vec.end(), 0UL) };
-
-    for (std::size_t i = 0; i < futs.size(); ++i)
-        result += futs[i].get();
-
+    for (auto &fut : futs)
+        result += fut.get();
     assert(result == the_sum);
-    return;
-}
 
-// ----------------------------------------------------------------------------
+    // Now do the same thing, this time with integer indices
+    //
+    auto    func2 =
+        [](auto begin, auto end, const auto &vec) -> std::size_t  {
+            std::size_t sum { 0 };
 
-struct  ParSorter  {
+            for (auto i = begin; i != end; ++i)
+                sum += vec[i];
+            return (sum);
+        };
+    auto    futs2 = thr_pool.parallel_loop(std::size_t(0), n, func2, vec);
 
-    using DataType = std::size_t;
-    using ContainerType = std::list<DataType>;
-	
-    ContainerType do_sort(ContainerType &input_data)  {
-
-        if (input_data.size() < 2)  return (input_data);
-
-        ContainerType   result;
-
-        // The pivot point is the first element
-        //
-        result.splice(result.begin(), input_data, input_data.begin());
-
-        const DataType  partition_val = *(result.begin());
-        auto            divide_point =  // list iterator
-            std::partition(input_data.begin(),
-                           input_data.end(),
-                           [partition_val](const DataType &val) -> bool  {
-                               return (val < partition_val);
-                           });
-
-        ContainerType   lower_chunk;
-
-        // The pivot point is the first element
-        //
-        lower_chunk.splice(lower_chunk.begin(),
-                           input_data,
-                           input_data.begin(),
-                           divide_point);
-
-        std::future<ContainerType>  lower_fut =
-            thr_pool_.dispatch(false,
-                               &ParSorter::do_sort,
-                               this,
-                               std::ref(lower_chunk));
-        ContainerType               higher_chunk = do_sort(input_data);
-
-        result.splice(result.end(), higher_chunk);
-
-        // Run tasks to unblock the recursive tasks
-        //
-        while (lower_fut.wait_for(std::chrono::seconds(0)) ==
-                   std::future_status::timeout)
-            thr_pool_.run_task();
-
-        result.splice(result.begin(), lower_fut.get());
-
-        return (result);
-    }
-
-private:
-
-    ThreadPool  thr_pool_ { THREAD_COUNT };
-};
-
-// --------------------------------------
-
-static void parallel_sort()  {
-
-    std::cout << "Running parallel_sort() ..." << std::endl;
-
-    constexpr std::size_t   n { 1003 };
-    std::list<std::size_t>  data (n);
-
-    for (auto &iter : data) iter = ::rand();
-
-    ParSorter               ps;
-    std::list<std::size_t>  sorted_data = ps.do_sort(data);
-    auto                    data_end = --(sorted_data.cend());
-
-    assert(sorted_data.size() == n);
-    for (auto citer = sorted_data.begin(); citer != data_end; )
-        assert((*citer <= *(++citer)));
-    return;
+    result = 0;
+    for (auto &fut : futs2)
+        result += fut.get();
+    assert(result == the_sum);
 }
 
 // ----------------------------------------------------------------------------
@@ -325,8 +317,8 @@ int main (int, char *[])  {
 
     haphazard();
     repeating_thread_id();
-    parallel_accumulate();
-    parallel_sort();
+    zero_thread_test();
+    parallel_loop_test();
 
     return (EXIT_SUCCESS);
 }

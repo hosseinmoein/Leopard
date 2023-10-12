@@ -38,14 +38,67 @@ It has the following features:<BR>
    2. The second parameter is a callable reference.
    3. The next parameter(s) is a variadic list of parameters matching your callable parameter list.
    4. `dispatch()` returns a `std::future` of the type of your callable return type.
-4. You can call `run_task()`. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
-5. At any point you can add/subtract threads to/from the pool.
-6. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
-7. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
-8. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
-9. The destructor calls `shutdown()` and waits until all threads are done running routines.
+4. There is also `parallel_loop()` method
+   1. The first and second parameters are a pair of iterators, begin and end.
+   2. The third parameter is a callable.
+   3. There is also a variadic list of parameters at the end.
+   4. It divides the data elements between begin and end to _n_ blocks by dividing by number of capacity threads. It dispatches the _n_ tasks.
+   5. `parallel_loop()` returns a `std::vector` of `std::future` corresponding to the above _n_ tasks.
+5. You can call `run_task()`. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
+6. At any point you can add/subtract threads to/from the pool.
+7. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
+8. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
+9. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
+10. The destructor calls `shutdown()` and waits until all threads are done running routines.
 
 ```cpp
+static void parallel_loop_test()  {
+
+    std::cout << "Running parallel_loop_test() ..." << std::endl;
+
+    constexpr std::size_t       n { 10003 };
+    constexpr std::size_t       the_sum { (n * (n + 1)) / 2 };
+    std::vector<std::size_t>    vec (n);
+
+    std::iota(vec.begin(), vec.end(), 1);
+
+    auto        func =
+        [](const auto &begin, const auto &end) -> std::size_t  {
+            std::size_t sum { 0 };
+
+            for (auto iter = begin; iter != end; ++iter)
+                sum += *iter;
+            return (sum);
+        };
+    ThreadPool  thr_pool { 5 };
+    auto        futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
+
+    std::size_t result {0};
+
+    for (auto &fut : futs)
+        result += fut.get();
+    assert(result == the_sum);
+
+    // Now do the same thing, this time with integer indices
+    //
+    auto    func2 =
+        [](auto begin, auto end, const auto &vec) -> std::size_t  {
+            std::size_t sum { 0 };
+
+            for (auto i = begin; i != end; ++i)
+                sum += vec[i];
+            return (sum);
+        };
+    auto    futs2 = thr_pool.parallel_loop(std::size_t(0), n, func2, vec);
+
+    result = 0;
+    for (auto &fut : futs2)
+        result += fut.get();
+    assert(result == the_sum);
+}
+
+// ----------------------------------------------------------------------------
+
 struct   MyClass  {
     bool routine(std::size_t i)  {
         std::cout << "From routine() " << i << "\n";

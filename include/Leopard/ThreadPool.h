@@ -11,7 +11,7 @@ modification, are permitted provided that the following conditions are met:
 * Redistributions in binary form must reproduce the above copyright
   notice, this list of conditions and the following disclaimer in the
   documentation and/or other materials provided with the distribution.
-* Neither the name of Hossein Moein and/or the ThreadPool nor the
+* Neither the name of Hossein Moein and/or the Leopard nor the
   names of its contributors may be used to endorse or promote products
   derived from this software without specific prior written permission.
 
@@ -29,13 +29,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <ThreadPool/SharedQueue.h>
+#include <Leopard/SharedQueue.h>
 
 #include <atomic>
 #include <concepts>
 #include <condition_variable>
 #include <functional>
 #include <future>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -52,8 +53,17 @@ class   ThreadPool  {
 
 public:
 
-    using size_type = int;
+    using size_type = long;
     using time_type = time_t;
+
+    ThreadPool() = delete;
+    ThreadPool(const ThreadPool &) = delete;
+    ThreadPool &operator = (const ThreadPool &) = delete;
+    explicit
+    ThreadPool(size_type thr_num,
+               bool timeout_flag = true,
+               time_type timeout_time = 30 * 60);
+    ~ThreadPool();
 
     template<typename F, typename ... As>
     requires std::invocable<F, As ...>
@@ -61,21 +71,26 @@ public:
         std::future<std::invoke_result_t<std::decay_t<F>,
                                          std::decay_t<As> ...>>;
 
-    ThreadPool() = delete;
-    ThreadPool(const ThreadPool &) = delete;
-    ThreadPool &operator = (const ThreadPool &) = delete;
-
-    explicit
-    ThreadPool(size_type thr_num,
-               bool timeout_flag = true,
-               time_type timeout_time = 30 * 60);
-    ~ThreadPool();
+    template<typename F, typename I, typename ... As>
+    requires std::invocable<F, I, I, As ...>
+    using loop_res_t =
+        std::vector<std::future<std::invoke_result_t<std::decay_t<F>,
+                                                     std::decay_t<I>,
+                                                     std::decay_t<I>,
+                                                     std::decay_t<As> ...>>>;
 
     // The return type of dispatch is std::future of return type of routine
     //
     template<typename F, typename ... As>
     dispatch_res_t<F, As ...>
     dispatch(bool immediately, F &&routine, As && ... args);
+
+    // It dispatches n / number_of_capacity_threads tasks where n is the
+    // distance between begin and end.
+    //
+    template<typename F, typename I, typename ... As>
+    loop_res_t<F, I, As ...>
+    parallel_loop(I begin, I end, F &&routine, As && ... args);
 
     // If the pool is not shutdown and there is a pending task, run the one
     // task on the calling thread.
@@ -88,6 +103,7 @@ public:
     size_type available_threads() const noexcept;
     size_type capacity_threads() const noexcept;
     size_type pending_tasks() const noexcept; // How many tasks in the queue
+    bool is_shutdown() const noexcept;
 
     bool shutdown() noexcept;
 
@@ -111,7 +127,7 @@ private:
 
         WorkUnit() = default;
         WorkUnit(const WorkUnit &) = default;
-        WorkUnit(WorkUnit &&) = default;	
+        WorkUnit(WorkUnit &&) = default;
         WorkUnit &operator=(const WorkUnit &) = default;
         WorkUnit &operator=(WorkUnit &&) = default;
 
@@ -151,7 +167,7 @@ private:
 // ----------------------------------------------------------------------------
 
 #ifndef HMTHRP_DO_NOT_INCLUDE_TCC_FILES
-#  include <ThreadPool/ThreadPool.tcc>
+#  include <Leopard/ThreadPool.tcc>
 #endif // HMTHRP_DO_NOT_INCLUDE_TCC_FILES
 
 // ----------------------------------------------------------------------------
