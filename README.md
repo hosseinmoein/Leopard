@@ -59,7 +59,10 @@ static void parallel_loop_test()  {
     constexpr std::size_t       n { 10003 };
     constexpr std::size_t       the_sum { (n * (n + 1)) / 2 };
     std::vector<std::size_t>    vec (n);
-    auto                        func =
+
+    std::iota(vec.begin(), vec.end(), 1);
+
+    auto        func =
         [](const auto &begin, const auto &end) -> std::size_t  {
             std::size_t sum { 0 };
 
@@ -67,17 +70,30 @@ static void parallel_loop_test()  {
                 sum += *iter;
             return (sum);
         };
-    ThreadPool                  thr_pool { 5 };
-
-    std::iota(vec.begin(), vec.end(), 1);
-
-    auto    futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
+    ThreadPool  thr_pool { 5 };
+    auto        futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
 
     std::size_t result {0};
 
-    for (auto &iter : futs)
-        result += iter.get();
+    for (auto &fut : futs)
+        result += fut.get();
+    assert(result == the_sum);
 
+    // Now do the same thing, this time with integer indices
+    //
+    auto    func2 =
+        [](auto begin, auto end, const auto &vec) -> std::size_t  {
+            std::size_t sum { 0 };
+
+            for (auto i = begin; i != end; ++i)
+                sum += vec[i];
+            return (sum);
+        };
+    auto    futs2 = thr_pool.parallel_loop(std::size_t(0), n, func2, vec);
+
+    result = 0;
+    for (auto &fut : futs2)
+        result += fut.get();
     assert(result == the_sum);
 }
 

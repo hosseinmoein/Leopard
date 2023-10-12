@@ -33,6 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ctime>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 
 // ----------------------------------------------------------------------------
 
@@ -121,7 +122,7 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
 // ----------------------------------------------------------------------------
 
 template<typename F, typename I, typename ... As>
-ThreadPool::loop_res_t<F, I>
+ThreadPool::loop_res_t<F, I, As ...>
 ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
 
     using task_return_t =
@@ -131,7 +132,13 @@ ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
                              std::decay_t<As> ...>;
     using future_t = std::future<task_return_t>;
 
-    const size_type         n { std::distance(begin, end) };
+    size_type   n { 0 };
+
+	if constexpr (std::is_integral<I>::value)
+        n = end - begin;
+    else
+        n = std::distance(begin, end);
+	
     const size_type         block_size { n / capacity_threads() };
     std::vector<future_t>   ret;
 

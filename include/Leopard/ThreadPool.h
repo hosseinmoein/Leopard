@@ -72,7 +72,7 @@ public:
                                          std::decay_t<As> ...>>;
 
     template<typename F, typename I, typename ... As>
-    requires std::invocable<F, I, I, As ...> && std::forward_iterator<I>
+    requires std::invocable<F, I, I, As ...>
     using loop_res_t =
         std::vector<std::future<std::invoke_result_t<std::decay_t<F>,
                                                      std::decay_t<I>,
@@ -89,7 +89,7 @@ public:
     // distance between begin and end.
     //
     template<typename F, typename I, typename ... As>
-    loop_res_t<F, I>
+    loop_res_t<F, I, As ...>
     parallel_loop(I begin, I end, F &&routine, As && ... args);
 
     // If the pool is not shutdown and there is a pending task, run the one
