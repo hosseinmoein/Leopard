@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <functional>
 #include <future>
 #include <iterator>
-#include <memory>
+#include <list>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -143,12 +143,14 @@ private:
     using guard_type = std::lock_guard<std::mutex>;
     using GlobalQueueType = SharedQueue<WorkUnit>;
     using LocalQueueType = std::queue<WorkUnit>;
-    using LocalQueuePtr = std::unique_ptr<LocalQueueType>;
     using ThreadType = std::thread;
 
-    GlobalQueueType             global_queue_ { };
-    std::vector<LocalQueuePtr>  local_queues_ { };
-    std::vector<ThreadType>     threads_ {  };
+    using LocalQueueList = std::list<LocalQueueType>;
+    using ThreadVector = std::vector<ThreadType>;
+
+    ThreadVector    threads_ { };
+    LocalQueueList  local_queues_ { };
+    GlobalQueueType global_queue_ { };
 
     inline static thread_local LocalQueueType *local_queue_ { nullptr };
 

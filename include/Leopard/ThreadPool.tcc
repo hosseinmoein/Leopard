@@ -35,8 +35,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdexcept>
 #include <type_traits>
 
-#include <iostream>
-
 // ----------------------------------------------------------------------------
 
 namespace hmthrp
@@ -47,17 +45,15 @@ ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
     : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
 
     threads_.reserve(thr_num * 2);
-    local_queues_.reserve(thr_num * 2);
     for (size_type i = 0; i < thr_num; ++i)  {
-        local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
+        local_queues_.push_back(LocalQueueType { });
         threads_.emplace_back(&ThreadPool::thread_routine_, this, i);
     }
 
-    // Make sure at least one thread is running before we exit the constructor
+    // Make sure all threads are running before we exit the constructor
     //
-    if (thr_num > 0)
-        while (capacity_threads() == 0)
-            std::this_thread::yield();
+    while (capacity_threads() != thr_num)
+        std::this_thread::yield();
 }
 
 // ----------------------------------------------------------------------------
@@ -139,11 +135,11 @@ ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
 
     size_type   n { 0 };
 
-	if constexpr (std::is_integral<I>::value)
+    if constexpr (std::is_integral<I>::value)
         n = end - begin;
     else
         n = std::distance(begin, end);
-	
+
     const size_type         block_size { n / capacity_threads() };
     std::vector<future_t>   ret;
 
@@ -192,10 +188,10 @@ bool ThreadPool::add_thread(size_type thr_num)  {
     }
     else if (thr_num > 0)  {
         const guard_type    guard { state_ };
-        const size_type     local_size { size_type(local_queues_.size()) };
+        const size_type     local_size { size_type(threads_.size()) };
 
         for (size_type i = 0; i < thr_num; ++i)  {
-            local_queues_.push_back(LocalQueuePtr(new LocalQueueType));
+            local_queues_.push_back(LocalQueueType { });
             threads_.emplace_back(&ThreadPool::thread_routine_,
                                   this, local_size + i);
         }
@@ -275,7 +271,7 @@ bool ThreadPool::run_task() noexcept  {
             }
         }
         if (work_unit.work_type == WORK_TYPE::_undefined_)
-            global_queue_.pop_front(false);  // No wait
+            work_unit = global_queue_.pop_front(false);  // No wait
 
         if (work_unit.work_type == WORK_TYPE::_client_service_)  {
             (work_unit.func)();  // Execute the callable
@@ -296,9 +292,11 @@ bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
         return (false);
 
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
+    auto        iter = local_queues_.begin();
 
+    std::advance(iter, local_q_idx);
+    local_queue_ = &(*iter);
     ++capacity_threads_;
-    local_queue_ = local_queues_[local_q_idx].get();
     while (true)  {
         ++available_threads_;
 
@@ -313,6 +311,16 @@ bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
                 work_unit = local_queue_->front();
                 local_queue_->pop();
             }
+
+            // Try to steal tasks from other queues
+            //
+            if (work_unit.work_type == WORK_TYPE::_undefined_)
+                for (auto &q : local_queues_)
+                    if (! q.empty())  {
+                        work_unit = q.front();
+                        q.pop();
+                        break;
+                    }
         }
         if (work_unit.work_type == WORK_TYPE::_undefined_)
             work_unit = global_queue_.pop_front();  // Wait here
@@ -333,6 +341,7 @@ bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
         }
     }
     --capacity_threads_;
+    local_queue_ = nullptr;
 
     return (true);
 }
