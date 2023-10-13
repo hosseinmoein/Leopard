@@ -37,7 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <functional>
 #include <future>
 #include <iterator>
-#include <memory>
+#include <list>
 #include <mutex>
 #include <thread>
 #include <type_traits>
@@ -111,7 +111,7 @@ private:
 
     // This is the routine that is dispatched for each thread
     //
-    bool thread_routine_() noexcept;
+    bool thread_routine_(size_type local_q_idx) noexcept;
     void terminate_timed_outs_() noexcept;
 
     using routine_type = std::function<void()>;
@@ -145,13 +145,15 @@ private:
     using LocalQueueType = std::queue<WorkUnit>;
     using ThreadType = std::thread;
 
+    using LocalQueueList = std::list<LocalQueueType>;
+    using ThreadVector = std::vector<ThreadType>;
+
+    ThreadVector    threads_ { };
+    LocalQueueList  local_queues_ { };
     GlobalQueueType global_queue_ { };
 
-    // This is handy especially for recursive parallel algorithms
-    //
-    inline static thread_local std::unique_ptr<LocalQueueType> local_queue_;
+    inline static thread_local LocalQueueType *local_queue_ { nullptr };
 
-    std::vector<ThreadType> threads_ {  };
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
