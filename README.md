@@ -70,7 +70,7 @@ static void parallel_loop_test()  {
             return (sum);
         };
     ThreadPool  thr_pool { 5 };  // Thread pool with 5 threads.
-    // Firs we do it using iterators
+    // First we do it using iterators
     //
     auto        futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
 
