@@ -27,25 +27,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <img src="docs/Leopard.jpg" alt="ThreadPool Leopard" width="400" longdesc="https://htmlpreview.github.io/?https://github.com/hosseinmoein/ThreadPool/blob/master/README.md"/>
 
 This is a light-weight C++ Thread Pool that allows running any callable similar to `std::async` interface. It has both global and local queues and employs a work-stealing algorithm.<BR>
-It has the following features:<BR>
+It has the following interface:<BR>
 1. You can run any function with any signature including member functions.
 2. The thread pool is constructed with:
-   1. Number of initial threads
-   2. Boolean flag to specify if there is a timeout for threads -- defaulted to true. With timeout, if threads idle more than the timeout period, they will terminate.
-   3. time_t value to specify the timeout period in seconds -- defaulted to 30 minutes
+   1. Number of initial threads -- default is number of cores in your computer.
+   2. Boolean flag to specify if there is a timeout for threads -- default is _false_. With timeout, if threads idle more than the timeout period, they will terminate.
+   3. time_t value to specify the timeout period in seconds -- defaulted to 30 minutes. This is considered only if `timeout_flag` is _true_.
 3. You `dispatch()` a routine. If a thread is available the routine will run. If no thread is available, the routine will be added to a queue until a thread becomes available. Dispatch interface is identical to `std::async()` with one exception:
-   1. The first parameter is a Boolean flag named `immediately`. If true and no thread is available, a thread will be added to the pool and your routine runs immediate.
+   1. The first parameter is a Boolean flag named `immediately`. If true and no thread is available, a thread will be added to the pool and your routine runs immediately.
    2. The second parameter is a callable reference.
-   3. The next parameter(s) is a variadic list of parameters matching your callable parameter list.
+   3. The next parameter(s) are a variadic list of parameters matching your callable parameter list.
    4. `dispatch()` returns a `std::future` of the type of your callable return type.
-4. There is also `parallel_loop()` method
-   1. The first and second parameters are a pair of iterators, begin and end.
+4. There is also `parallel_loop()` method. This parallelizes a big class of problems very conveniently. It divides the data elements between begin and end to _n_ blocks by dividing by number of capacity threads. It dispatches the _n_ tasks.
+   1. The first and second parameters are a pair of iterators, begin and end. They can either be proper iterators or integral type indices.
    2. The third parameter is a callable.
-   3. There is also a variadic list of parameters at the end.
-   4. It divides the data elements between begin and end to _n_ blocks by dividing by number of capacity threads. It dispatches the _n_ tasks.
-   5. `parallel_loop()` returns a `std::vector` of `std::future` corresponding to the above _n_ tasks.
+   3. There is also a variadic list of parameters at the end that must match the callable's parameter list.
+   4. `parallel_loop()` returns a `std::vector` of `std::future` corresponding to the above _n_ tasks.
 5. You can call `run_task()`. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
-6. At any point you can add/subtract threads to/from the pool.
+6. At any point you can add/subtract threads to/from the pool by calling `add_thread(()`.
 7. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
 8. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
 9. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
@@ -70,7 +69,9 @@ static void parallel_loop_test()  {
                 sum += *iter;
             return (sum);
         };
-    ThreadPool  thr_pool { 5 };
+    ThreadPool  thr_pool { 5 };  // Thread pool with 5 threads.
+    // Firs we do it using iterators
+    //
     auto        futs = thr_pool.parallel_loop(vec.cbegin(), vec.cend(), func);
 
     std::size_t result {0};

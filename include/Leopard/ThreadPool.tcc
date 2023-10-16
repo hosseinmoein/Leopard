@@ -68,7 +68,7 @@ ThreadPool::~ThreadPool()  {
 
 // ----------------------------------------------------------------------------
 
-void ThreadPool::terminate_timed_outs_() noexcept  {
+void ThreadPool::queue_timed_outs_() noexcept  {
 
     const size_type timeys { capacity_threads() };
 
@@ -116,7 +116,7 @@ ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
         global_queue_.push(work_unit);
 
     if (timeout_flag_)
-        terminate_timed_outs_();
+        queue_timed_outs_();
     return (return_fut);
 }
 
@@ -140,10 +140,11 @@ ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
     else
         n = std::distance(begin, end);
 
-    const size_type         block_size { n / capacity_threads() };
+    const size_type         cap_thrs { capacity_threads() };
+    const size_type         block_size { n / cap_thrs };
     std::vector<future_t>   ret;
 
-    ret.reserve(capacity_threads() + 1);
+    ret.reserve(cap_thrs + 1);
     for (size_type i = 0; i < n; i += block_size)  {
         const size_type block_end {
             ((i + block_size) > n) ? n : i + block_size
@@ -197,6 +198,7 @@ bool ThreadPool::add_thread(size_type thr_num)  {
         }
     }
 
+    std::this_thread::yield();  // Give +/- threads a chance
     return (true);
 }
 
@@ -234,7 +236,8 @@ ThreadPool::pending_tasks() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::shutdown() noexcept  {
+bool
+ThreadPool::shutdown() noexcept  {
 
     bool    expected { false };
 
@@ -255,38 +258,54 @@ bool ThreadPool::shutdown() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::run_task() noexcept  {
+ThreadPool::WorkUnit
+ThreadPool::get_one_local_task_() noexcept  {
 
-    try  {
-        WorkUnit    work_unit;
+    WorkUnit            work_unit;
+    const guard_type    guard { state_ };
 
-        // First look at the local queue
-        //
-        if (local_queue_)  {
-            const guard_type    guard { state_ };
-
-            if (! local_queue_->empty())  {
-                work_unit = local_queue_->front();
-                local_queue_->pop();
-            }
-        }
-        if (work_unit.work_type == WORK_TYPE::_undefined_)
-            work_unit = global_queue_.pop_front(false);  // No wait
-
-        if (work_unit.work_type == WORK_TYPE::_client_service_)  {
-            (work_unit.func)();  // Execute the callable
-            return (true);
-        }
-        else if (work_unit.work_type != WORK_TYPE::_undefined_)
-            global_queue_.push(work_unit);  // Put it back
+    if (! local_queue_->empty())  {
+        work_unit = local_queue_->front();
+        local_queue_->pop();
     }
-    catch (const SQEmpty &)  { ; }
+    else  {  // Try to steal tasks from other queues
+        for (auto &q : local_queues_)
+            if (! q.empty())  {
+                work_unit = q.front();
+                q.pop();
+                break;
+            }
+    }
+    return (work_unit);
+}
+
+// ----------------------------------------------------------------------------
+
+bool
+ThreadPool::run_task() noexcept  {
+
+    WorkUnit    work_unit = get_one_local_task_();
+
+    if (work_unit.work_type == WORK_TYPE::_undefined_)  {
+        try  {
+            work_unit = global_queue_.pop_front(false); // Don't wait;
+        }
+        catch (const SQEmpty &)  { ; }
+        return (false);
+    }
+    if (work_unit.work_type != WORK_TYPE::_client_service_)
+        global_queue_.push(work_unit);  // Put it back
+    else  {
+        (work_unit.func)();  // Execute the callable
+        return (true);
+    }
     return (false);
 }
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
+bool
+ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
     if (is_shutdown())
         return (false);
@@ -300,30 +319,10 @@ bool ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
     while (true)  {
         ++available_threads_;
 
-        WorkUnit    work_unit;
+        WorkUnit    work_unit = get_one_local_task_();
 
-        // First empty the local queue
-        //
-        {
-            const guard_type    guard { state_ };
-
-            if (! local_queue_->empty())  {
-                work_unit = local_queue_->front();
-                local_queue_->pop();
-            }
-
-            // Try to steal tasks from other queues
-            //
-            if (work_unit.work_type == WORK_TYPE::_undefined_)
-                for (auto &q : local_queues_)
-                    if (! q.empty())  {
-                        work_unit = q.front();
-                        q.pop();
-                        break;
-                    }
-        }
         if (work_unit.work_type == WORK_TYPE::_undefined_)
-            work_unit = global_queue_.pop_front();  // Wait here
+            work_unit = global_queue_.pop_front(true);  // Wait
 
         --available_threads_;
 

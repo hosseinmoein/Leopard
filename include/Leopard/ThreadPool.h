@@ -60,8 +60,8 @@ public:
     ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
     explicit
-    ThreadPool(size_type thr_num,
-               bool timeout_flag = true,
+    ThreadPool(size_type thr_num = std::thread::hardware_concurrency(),
+               bool timeout_flag = false,
                time_type timeout_time = 30 * 60);
     ~ThreadPool();
 
@@ -109,11 +109,6 @@ public:
 
 private:
 
-    // This is the routine that is dispatched for each thread
-    //
-    bool thread_routine_(size_type local_q_idx) noexcept;
-    void terminate_timed_outs_() noexcept;
-
     using routine_type = std::function<void()>;
 
     enum class WORK_TYPE : unsigned char {
@@ -139,6 +134,10 @@ private:
         routine_type    func {  };
         WORK_TYPE       work_type { WORK_TYPE::_undefined_ };
     };
+
+    bool thread_routine_(size_type local_q_idx) noexcept;  // Engine routine
+    void queue_timed_outs_() noexcept;
+    WorkUnit get_one_local_task_() noexcept;
 
     using guard_type = std::lock_guard<std::mutex>;
     using GlobalQueueType = SharedQueue<WorkUnit>;
