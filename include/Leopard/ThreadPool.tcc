@@ -264,13 +264,13 @@ ThreadPool::get_one_local_task_() noexcept  {
     WorkUnit            work_unit;
     const guard_type    guard { state_ };
 
-    if (! local_queue_->empty())  {
+    if (local_queue_ && local_queue_->empty() == false)  {
         work_unit = local_queue_->front();
         local_queue_->pop();
     }
     else  {  // Try to steal tasks from other queues
         for (auto &q : local_queues_)
-            if (! q.empty())  {
+            if (&q != local_queue_ && q.empty() == false)  {
                 work_unit = q.front();
                 q.pop();
                 break;
@@ -288,17 +288,16 @@ ThreadPool::run_task() noexcept  {
 
     if (work_unit.work_type == WORK_TYPE::_undefined_)  {
         try  {
-            work_unit = global_queue_.pop_front(false); // Don't wait;
+            work_unit = global_queue_.pop_front(false); // Don't wait
         }
         catch (const SQEmpty &)  { ; }
-        return (false);
     }
-    if (work_unit.work_type != WORK_TYPE::_client_service_)
-        global_queue_.push(work_unit);  // Put it back
-    else  {
+    if (work_unit.work_type == WORK_TYPE::_client_service_) {
         (work_unit.func)();  // Execute the callable
         return (true);
     }
+    else if (work_unit.work_type != WORK_TYPE::_undefined_)
+        global_queue_.push(work_unit);  // Put it back
     return (false);
 }
 
