@@ -32,6 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <queue>
 
 // ----------------------------------------------------------------------------
@@ -50,6 +51,7 @@ public:
 
     using value_type = T;
     using size_type = unsigned int;
+    using optional_ret = std::optional<value_type>;
 
     SharedQueue() = default;
     SharedQueue(SharedQueue &&) = default;
@@ -68,8 +70,8 @@ public:
     //       Therefore it is not as efficient as front().
     //       Use it only if you have to.
     //
-    inline value_type
-    pop_front(bool wait_on_front = true); // throw (SQEmpty);
+    inline optional_ret
+    pop_front(bool wait_on_front = true) noexcept;
 
     void pop() noexcept;
     bool empty() const noexcept;
@@ -90,7 +92,7 @@ private:
 // ----------------------------------------------------------------------------
 
 #ifndef HMTHRP_DO_NOT_INCLUDE_TCC_FILES
-#    include <Leopard/SharedQueue.tcc>
+#  include <Leopard/SharedQueue.tcc>
 #endif // HMTHRP_DO_NOT_INCLUDE_TCC_FILES
 
 // ----------------------------------------------------------------------------

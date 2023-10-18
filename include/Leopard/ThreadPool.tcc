@@ -287,10 +287,10 @@ ThreadPool::run_task() noexcept  {
     WorkUnit    work_unit = get_one_local_task_();
 
     if (work_unit.work_type == WORK_TYPE::_undefined_)  {
-        try  {
-            work_unit = global_queue_.pop_front(false); // Don't wait
-        }
-        catch (const SQEmpty &)  { ; }
+        const auto  opt_ret = global_queue_.pop_front(false); // Don't wait
+
+        if (opt_ret.has_value())
+            work_unit = opt_ret.value();
     }
     if (work_unit.work_type == WORK_TYPE::_client_service_) {
         (work_unit.func)();  // Execute the callable
@@ -320,8 +320,12 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
         WorkUnit    work_unit = get_one_local_task_();
 
-        if (work_unit.work_type == WORK_TYPE::_undefined_)
-            work_unit = global_queue_.pop_front(true);  // Wait
+        if (work_unit.work_type == WORK_TYPE::_undefined_)  {
+            const auto  opt_ret = global_queue_.pop_front(true); // Wait
+
+            if (opt_ret.has_value())
+                work_unit = opt_ret.value();
+        }
 
         --available_threads_;
 

@@ -66,22 +66,21 @@ SharedQueue<T>::front(bool wait_on_front) const  { // throw (SQEmpty)
 // ----------------------------------------------------------------------------
 
 template<typename T>
-inline typename SharedQueue<T>::value_type
-SharedQueue<T>::pop_front(bool wait_on_front)  { // throw (SQEmpty)
+inline typename SharedQueue<T>::optional_ret
+SharedQueue<T>::pop_front(bool wait_on_front) noexcept  {
 
+    optional_ret                    ret { };
     std::unique_lock<std::mutex>    ul { mutex_ };
 
-    if (queue_.empty())  {
-        if (wait_on_front)
-            while (queue_.empty())  cvx_.wait(ul);
-        else
-            throw SQEmpty { };
+    if (queue_.empty() && wait_on_front)  {
+        while (queue_.empty())  cvx_.wait(ul);
     }
 
-    const   value_type  value { queue_.front() };
-
-    queue_.pop();
-    return (value);
+    if (! queue_.empty())  {
+        ret = queue_.front();
+        queue_.pop();
+    }
+    return (ret);
 }
 
 // ----------------------------------------------------------------------------
@@ -132,7 +131,7 @@ SharedQueue<T>::size() const noexcept  {
 
     return (queue_.size());
 }
-	
+
 } // namespace hmthrp
 
 // ----------------------------------------------------------------------------
