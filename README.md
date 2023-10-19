@@ -43,12 +43,15 @@ It has the following interface:<BR>
    2. The third parameter is a callable.
    3. There is also a variadic list of parameters at the end that must match the callable's parameter list.
    4. `parallel_loop()` returns a `std::vector` of `std::future` corresponding to the above _n_ tasks.
-5. You can call `run_task()`. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
-6. At any point you can add/subtract threads to/from the pool by calling `add_thread(()`.
-7. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
-8. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
-9. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
-10. The destructor calls `shutdown()` and waits until all threads are done running routines.
+5. There is also `attach()` method. It attaches the current thread to the pool so that it may be used for executing submitted tasks. It blocks the calling thread until the pool is shutdown or the thread is timed-out. This is a handy interface if threads need to be initialized before doing anything. And/or they need a clean up before exiting. For example, see Windows CoInitializeEx function in COM library 
+   1. The first and only parameter is a rvalue reference to the std::thread instance of the calling thread
+   2. To see an example, look at `attach_test()` test in `thrpool_tester.cc` file
+6. There is also `run_task()` method. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
+7. At any point you can add/subtract threads to/from the pool by calling `add_thread(()`.
+8. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
+9. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
+10. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
+11. The destructor calls `shutdown()` and waits until all threads are done running routines.
 
 ```cpp
 static void parallel_loop_test()  {

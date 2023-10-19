@@ -55,8 +55,8 @@ public:
 
     using size_type = long;
     using time_type = time_t;
+    using thread_type = std::thread;
 
-    ThreadPool() = delete;
     ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
     explicit
@@ -91,6 +91,15 @@ public:
     template<typename F, typename I, typename ... As>
     loop_res_t<F, I, As ...>
     parallel_loop(I begin, I end, F &&routine, As && ... args);
+
+    // It attaches the current thread to the pool so that it may be used for
+    // executing submitted tasks. It blocks the calling thread until the pool
+    // is shutdown or the thread is timed-out.
+    // This is a handy interface if threads need to be initialized before
+    // doing anything. And/or they need a clean up before exiting.
+    // For example, see Windows CoInitializeEx function in COM library
+    //
+    void attach(thread_type &&this_thr);
 
     // If the pool is not shutdown and there is a pending task, run the one
     // task on the calling thread.
@@ -142,10 +151,9 @@ private:
     using guard_type = std::lock_guard<std::mutex>;
     using GlobalQueueType = SharedQueue<WorkUnit>;
     using LocalQueueType = std::queue<WorkUnit>;
-    using ThreadType = std::thread;
 
     using LocalQueueList = std::list<LocalQueueType>;
-    using ThreadVector = std::vector<ThreadType>;
+    using ThreadVector = std::vector<thread_type>;
 
     ThreadVector    threads_ { };
     LocalQueueList  local_queues_ { };

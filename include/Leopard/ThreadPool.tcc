@@ -166,7 +166,7 @@ bool ThreadPool::add_thread(size_type thr_num)  {
 
     if (is_shutdown())
         throw std::runtime_error("ThreadPool::add_thread(): "
-                                 "The thread pool is shutdown.");
+                                 "Thread pool is shutdown.");
 
     if (thr_num < 0)  {
         const size_type shutys { ::abs(thr_num) };
@@ -200,6 +200,26 @@ bool ThreadPool::add_thread(size_type thr_num)  {
 
     std::this_thread::yield();  // Give +/- threads a chance
     return (true);
+}
+
+// ----------------------------------------------------------------------------
+
+void ThreadPool::attach(thread_type &&this_thr)  {
+
+    if (is_shutdown())
+        throw std::runtime_error("ThreadPool::attach(): "
+                                 "Thread pool is shutdown.");
+
+    size_type   local_size { 0 };
+
+    {
+        const guard_type    guard { state_ };
+
+        local_size = size_type(threads_.size());
+        local_queues_.push_back(LocalQueueType { });
+        threads_.push_back(std::move(this_thr));
+    }
+    thread_routine_(local_size);
 }
 
 // ----------------------------------------------------------------------------
