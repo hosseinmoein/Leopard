@@ -27,31 +27,36 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <img src="docs/Leopard.jpg" alt="ThreadPool Leopard" width="400" longdesc="https://htmlpreview.github.io/?https://github.com/hosseinmoein/ThreadPool/blob/master/README.md"/>
 
 This is a light-weight C++ Thread Pool that allows running any callable similar to `std::async` interface. It has both global and local queues and employs a work-stealing algorithm.<BR>
-It has the following interface:<BR>
-1. You can run any function with any signature including member functions.
-2. The thread pool is constructed with:
+
+**Thread-pool interface**:<BR>
+1. `Conditioner` struct represents (is a wrapper around) a single executable function. See `ThreadPool.h`. It is used in ThreadPool to specify user custom initializers and cleanups per thread.
+2. `Constructor`: The thread pool is constructed with:
    1. Number of initial threads -- default is number of cores in your computer.
-   2. Boolean flag to specify if there is a timeout for threads -- default is _false_. With timeout, if threads idle more than the timeout period, they will terminate.
-   3. time_t value to specify the timeout period in seconds -- defaulted to 30 minutes. This is considered only if `timeout_flag` is _true_.
-3. You `dispatch()` a routine. If a thread is available the routine will run. If no thread is available, the routine will be added to a queue until a thread becomes available. Dispatch interface is identical to `std::async()` with one exception:
-   1. The first parameter is a Boolean flag named `immediately`. If true and no thread is available, a thread will be added to the pool and your routine runs immediately.
+   2. pre_conditioner: A function that will execute at the start of each thread in the pool once
+   3. post_conditioner: A function that will execute at the end of each thread in the pool once.
+   4. Conditioner(s) are a handy interface, if threads need to be initialized before doing anything. And/or they need a cleanup before exiting. For example, see Windows CoInitializeEx function in COM library. See `conditioner_test()` in `thrpool_tester.cc` file for code sample
+3. `set_timeout()`: It enables/disables timeouts for threads. If timeout is enabled and a thread idles more than timeout period, it will terminate. 
+   1. Boolean flag to enable/disable timeout mechanism.
+   2. time_t value to specify the timeout period in seconds -- defaulted to 30 minutes. 
+4. `dispatch()`. It dispatches a task into the thread-pool queue. If a thread is available the task will run. If no thread is available, the task will be added to a queue until a thread becomes available. Dispatch interface is identical to `std::async()` with one exception:
+   1. The first parameter is a Boolean flag named `immediately`. If true and no thread is available, a thread will be added to the pool and the task runs immediately.
    2. The second parameter is a callable reference.
    3. The next parameter(s) are a variadic list of parameters matching your callable parameter list.
    4. `dispatch()` returns a `std::future` of the type of your callable return type.
-4. There is also `parallel_loop()` method. This parallelizes a big class of problems very conveniently. It divides the data elements between begin and end to _n_ blocks by dividing by number of capacity threads. It dispatches the _n_ tasks.
+5. `parallel_loop()`: It parallelizes a big class of problems very conveniently. It divides the data elements between begin and end to _n_ blocks by dividing by number of capacity threads. It dispatches the _n_ tasks.
    1. The first and second parameters are a pair of iterators, begin and end. They can either be proper iterators or integral type indices.
    2. The third parameter is a callable.
    3. There is also a variadic list of parameters at the end that must match the callable's parameter list.
    4. `parallel_loop()` returns a `std::vector` of `std::future` corresponding to the above _n_ tasks.
-5. There is also `attach()` method. It attaches the current thread to the pool so that it may be used for executing submitted tasks. It blocks the calling thread until the pool is shutdown or the thread is timed-out. This is a handy interface if threads need to be initialized before doing anything. And/or they need a clean up before exiting. For example, see Windows CoInitializeEx function in COM library 
+6. `attach()`: It attaches the current thread to the pool so that it may be used for executing submitted tasks. It blocks the calling thread until the pool is shutdown or the thread is timed-out. This is handy, if you already have thread(s), and want to repurpose them
    1. The first and only parameter is a rvalue reference to the std::thread instance of the calling thread
-   2. To see an example, look at `attach_test()` test in `thrpool_tester.cc` file
-6. There is also `run_task()` method. If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
-7. At any point you can add/subtract threads to/from the pool by calling `add_thread(()`.
-8. At any point you can query the ThreadPool for available or capacity threads, by calling `available_threads()` or `capacity_threads()`.
-9. At any point you can query the ThreadPool for number of tasks currently waiting in the queue by calling `pending_tasks()`.
-10. At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running routines. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
-11. The destructor calls `shutdown()` and waits until all threads are done running routines.
+   2. To see an example, look at `attach_test()` in `thrpool_tester.cc` file for code sample
+7. `run_task()`: If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns _true_, if a task was executed, otherwise _false_. The return value of the task could be obtained from the original _future_ object when it was dispatched. **NOTE**: A _false_ return from `run_task()` does not necessarily mean there were no tasks in thread pool queue. It might be that `run_task()` just encountered one of the thread pool internal maintenance tasks which it ignored and returned _false_.
+8. `add_thread()`: At any point you can add/subtract threads to/from the pool.
+9. `available_threads()` or `capacity_threads()`: At any point you can query the ThreadPool for available or capacity threads.
+10. `pending_tasks()`: At any point you can query the ThreadPool for number of tasks currently waiting in the _global_ queue.
+11. `shutdown()`: At any point you can call `shutdown()` to signal the ThreadPool to terminate all threads after they are done running tasks. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
+12. `Destructor` calls `shutdown()` and waits until all threads are done running tasks.
 
 ```cpp
 static void parallel_loop_test()  {

@@ -49,6 +49,28 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmthrp
 {
 
+struct  Conditioner  {
+
+    template<typename F, typename ... As>
+    requires std::invocable<F, As ...>
+    explicit Conditioner(F &&routine, As && ... args);
+
+    Conditioner() = default;
+    Conditioner(const Conditioner &) = default;
+    Conditioner(Conditioner &&) = default;
+    ~Conditioner() = default;
+
+    void execute();
+
+private:
+
+    using routine_type = std::function<void()>;
+
+    routine_type    func_ { [] () -> void  { } };
+};
+
+// ----------------------------------------------------------------------------
+
 class   ThreadPool  {
 
 public:
@@ -59,11 +81,18 @@ public:
 
     ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
+
+    // Conditioner(s) are a handy interface, if threads need to be initialized
+    // before doing anything. And/or they need a clean up before exiting.
+    // For example, see Windows CoInitializeEx function in COM library
+    //
     explicit
     ThreadPool(size_type thr_num = std::thread::hardware_concurrency(),
-               bool timeout_flag = false,
-               time_type timeout_time = 30 * 60);
+               Conditioner pre_conditioner = Conditioner { },
+               Conditioner post_conditioner = Conditioner { });
     ~ThreadPool();
+
+    void set_timeout(bool timeout_flag, time_type timeout_time = 30 * 60);
 
     template<typename F, typename ... As>
     requires std::invocable<F, As ...>
@@ -95,9 +124,7 @@ public:
     // It attaches the current thread to the pool so that it may be used for
     // executing submitted tasks. It blocks the calling thread until the pool
     // is shutdown or the thread is timed-out.
-    // This is a handy interface if threads need to be initialized before
-    // doing anything. And/or they need a clean up before exiting.
-    // For example, see Windows CoInitializeEx function in COM library
+    // This is handy, if you already have thread(s), and want to repurpose them
     //
     void attach(thread_type &&this_thr);
 
@@ -164,9 +191,12 @@ private:
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
-    const time_type         timeout_time_;
+    time_type               timeout_time_ { 30 * 60 };
     mutable std::mutex      state_ { };
-    const bool              timeout_flag_;
+    bool                    timeout_flag_ { false };
+
+    Conditioner pre_conditioner_ { };
+    Conditioner post_conditioner_ { };
 };
 
 } // namespace hmthrp

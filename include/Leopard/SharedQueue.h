@@ -50,7 +50,7 @@ class   SharedQueue  {
 public:
 
     using value_type = T;
-    using size_type = unsigned int;
+    using size_type = std::size_t;
     using optional_ret = std::optional<value_type>;
 
     SharedQueue() = default;

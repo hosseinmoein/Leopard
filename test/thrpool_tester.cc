@@ -43,8 +43,8 @@ using namespace hmthrp;
 
 // ----------------------------------------------------------------------------
 
-static constexpr std::size_t    THREAD_COUNT = 5;
-static std::mutex               GLOCK { };
+static constexpr long   THREAD_COUNT = 5;
+static std::mutex       GLOCK { };
 
 // ----------------------------------------------------------------------------
 
@@ -93,13 +93,14 @@ static void haphazard()  {
 
     std::cout << "Running haphazard() ..." << std::endl;
 
-    ThreadPool  thr_pool (THREAD_COUNT, true, 10);
+    ThreadPool  thr_pool (THREAD_COUNT);
 
+    thr_pool.set_timeout(true, 10);
     thr_pool.add_thread(20);
 
     struct timespec rqt;
 
-    rqt.tv_sec = 11;
+    rqt.tv_sec = 5;
     rqt.tv_nsec = 0;
     ::nanosleep (&rqt, nullptr);
 
@@ -170,7 +171,7 @@ static void haphazard()  {
         std::cout << "Number of pending tasks: " << thr_pool.pending_tasks()
                   << std::endl;
     }
-    rqt.tv_sec = 10;
+    rqt.tv_sec = 5;
     ::nanosleep (&rqt, nullptr);
 
     const std::string   str = "XXXX";
@@ -315,11 +316,11 @@ static void parallel_loop_test()  {
 
 void test_func(ThreadPool::thread_type *this_thr, ThreadPool &thr_pool)  {
 
-    std::cout << "test_func(): Thread is initializing here ..." << std::endl;
+    std::cout << "test_func(): Joining thread starts ..." << std::endl;
 
     thr_pool.attach(std::move(*this_thr));
 
-    std::cout << "test_func(): ... Cleaning up before exit" << std::endl;
+    std::cout << "test_func(): ... Joining thread ends" << std::endl;
 };
 
 // -------------------------------------
@@ -377,6 +378,44 @@ static void attach_test()  {
 
 // ----------------------------------------------------------------------------
 
+void pre_cond(int i)  {
+
+    std::cout << "pre_cond(): pre-conditioner " << i << std::endl;
+};
+
+// -------------------------------------
+
+void post_cond(int i, const std::string &str)  {
+
+    std::cout << "post_cond(): post-conditioner "
+              << i << " -- " << str << std::endl;
+};
+
+// -------------------------------------
+
+static void conditioner_test()  {
+
+    std::cout << "Running conditioner_test() ..." << std::endl;
+
+    ThreadPool  thr_pool (std::thread::hardware_concurrency(),
+                          Conditioner { pre_cond, 10 },
+                          Conditioner { post_cond, 40, "Test Str" });
+
+    for (std::size_t i = 0; i < THREAD_COUNT * 100; ++i)
+        thr_pool.dispatch((! (i % 10)) ? true : false,
+                          &MyClass::routine, &my_obj, i);
+
+    {
+        const std::lock_guard<std::mutex>   lock { GLOCK };
+
+        std::cout << "First batch is done ..." << std::endl;
+    }
+
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
 int main (int, char *[])  {
 
     haphazard();
@@ -384,6 +423,7 @@ int main (int, char *[])  {
     zero_thread_test();
     parallel_loop_test();
     attach_test();
+    conditioner_test();
 
     return (EXIT_SUCCESS);
 }
