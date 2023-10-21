@@ -38,7 +38,7 @@ This is a light-weight C++ Thread Pool that allows running any callable similar 
 3. `set_timeout()`: It enables/disables timeouts for threads. If timeout is enabled and a thread idles more than timeout period, it will terminate. 
    1. Boolean flag to enable/disable timeout mechanism.
    2. time_t value to specify the timeout period in seconds -- defaulted to 30 minutes. 
-4. `dispatch()`. It dispatches a task into the thread-pool queue. If a thread is available the task will run. If no thread is available, the task will be added to a queue until a thread becomes available. Dispatch interface is identical to `std::async()` with one exception:
+4. `dispatch()`: It dispatches a task into the thread-pool queue. If a thread is available the task will run. If no thread is available, the task will be added to a queue until a thread becomes available. Dispatch interface is identical to `std::async()` with one exception:
    1. The first parameter is a Boolean flag named `immediately`. If true and no thread is available, a thread will be added to the pool and the task runs immediately.
    2. The second parameter is a callable reference.
    3. The next parameter(s) are a variadic list of parameters matching your callable parameter list.
