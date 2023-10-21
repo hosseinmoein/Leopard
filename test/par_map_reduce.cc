@@ -139,7 +139,7 @@ static void par_map_reduce()  {
 
     std::cout << "Done generating data ..." << std::endl;
 
-    ThreadPool  thr_pool (THREAD_COUNT, true, 10);
+    ThreadPool  thr_pool (THREAD_COUNT);
     const auto  start = std::chrono::high_resolution_clock::now();
 
     std::vector<std::future<WordCountMap>>  fut_maps;
@@ -147,6 +147,7 @@ static void par_map_reduce()  {
     const auto                              m_chunk_size =
         data_size / THREAD_COUNT;
 
+    thr_pool.set_timeout(true, 10);
     fut_maps.reserve(THREAD_COUNT + 1);
     for (std::size_t i = 0; i < data_size; i += m_chunk_size)  {
         fut_maps.push_back(

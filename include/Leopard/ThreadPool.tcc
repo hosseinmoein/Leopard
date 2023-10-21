@@ -40,9 +40,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace hmthrp
 {
 
-ThreadPool::
-ThreadPool(size_type thr_num, bool timeout_flag, time_type timeout_time)
-    : timeout_time_ (timeout_time), timeout_flag_ (timeout_flag)  {
+template<typename F, typename ... As>
+requires std::invocable<F, As ...>
+Conditioner::Conditioner(F &&routine, As && ... args)
+    : func_([&] () -> void { routine(std::forward<As>(args) ...); })  {   }
+
+// ----------------------------------------------------------------------------
+
+void Conditioner::execute()  { func_(); }
+
+// ----------------------------------------------------------------------------
+
+ThreadPool::ThreadPool(size_type thr_num,
+                       Conditioner pre_conditioner,
+                       Conditioner post_conditioner)
+    : pre_conditioner_(pre_conditioner), post_conditioner_(post_conditioner)  {
 
     threads_.reserve(thr_num * 2);
     for (size_type i = 0; i < thr_num; ++i)  {
@@ -68,7 +80,17 @@ ThreadPool::~ThreadPool()  {
 
 // ----------------------------------------------------------------------------
 
-void ThreadPool::queue_timed_outs_() noexcept  {
+void
+ThreadPool::set_timeout(bool timeout_flag, time_type timeout_time)  {
+
+    timeout_flag_ = timeout_flag;
+    timeout_time_ = timeout_time;
+}
+
+// ----------------------------------------------------------------------------
+
+void
+ThreadPool::queue_timed_outs_() noexcept  {
 
     const size_type timeys { capacity_threads() };
 
@@ -162,11 +184,12 @@ ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
 
 // ----------------------------------------------------------------------------
 
-bool ThreadPool::add_thread(size_type thr_num)  {
+bool
+ThreadPool::add_thread(size_type thr_num)  {
 
     if (is_shutdown())
         throw std::runtime_error("ThreadPool::add_thread(): "
-                                 "The thread pool is shutdown.");
+                                 "Thread pool is shutdown.");
 
     if (thr_num < 0)  {
         const size_type shutys { ::abs(thr_num) };
@@ -200,6 +223,27 @@ bool ThreadPool::add_thread(size_type thr_num)  {
 
     std::this_thread::yield();  // Give +/- threads a chance
     return (true);
+}
+
+// ----------------------------------------------------------------------------
+
+void
+ThreadPool::attach(thread_type &&this_thr)  {
+
+    if (is_shutdown())
+        throw std::runtime_error("ThreadPool::attach(): "
+                                 "Thread pool is shutdown.");
+
+    size_type   local_size { 0 };
+
+    {
+        const guard_type    guard { state_ };
+
+        local_size = size_type(threads_.size());
+        local_queues_.push_back(LocalQueueType { });
+        threads_.push_back(std::move(this_thr));
+    }
+    thread_routine_(local_size);
 }
 
 // ----------------------------------------------------------------------------
@@ -244,7 +288,7 @@ ThreadPool::shutdown() noexcept  {
     if (shutdown_flag_.compare_exchange_strong(expected, true,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed))  {
-        const size_type capacity { capacity_threads() };
+        const size_type capacity { capacity_threads() + 10 };
 
         for (size_type i = 0; i < capacity; ++i)  {
             const WorkUnit  work_unit { WORK_TYPE::_terminate_ };
@@ -309,6 +353,8 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
     if (is_shutdown())
         return (false);
 
+    pre_conditioner_.execute();
+
     time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
     auto        iter = local_queues_.begin();
 
@@ -333,7 +379,8 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
             break;
         }
         else if (work_unit.work_type == WORK_TYPE::_timeout_)  {
-            if (::time(nullptr) - last_busy_time >= timeout_time_)
+            if (timeout_flag_ &&
+                ((::time(nullptr) - last_busy_time) >= timeout_time_))
                 break;
         }
         else if (work_unit.work_type == WORK_TYPE::_client_service_)  {
@@ -344,6 +391,7 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
     }
     --capacity_threads_;
     local_queue_ = nullptr;
+    post_conditioner_.execute();
 
     return (true);
 }
