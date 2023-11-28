@@ -36,13 +36,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <list>
 #include <numeric>
+#include <stack>
 #include <string>
 
 using namespace hmthrp;
+using namespace std::chrono;
 
 // ----------------------------------------------------------------------------
 
-static constexpr std::size_t    THREAD_COUNT = 5;
+// static constexpr std::size_t    THREAD_COUNT = 5;
 
 // ----------------------------------------------------------------------------
 
@@ -50,7 +52,7 @@ struct  ParSorter  {
 
     using DataType = std::size_t;
     using ContainerType = std::list<DataType>;
-	
+
     ContainerType do_sort(ContainerType &input_data)  {
 
         if (input_data.size() < 2)  return (input_data);
@@ -100,23 +102,30 @@ struct  ParSorter  {
 
 private:
 
-    ThreadPool  thr_pool_ { THREAD_COUNT };
+    ThreadPool  thr_pool_ { };
 };
 
 // --------------------------------------
 
-static void parallel_sort()  {
+static void parallel_sort1()  {
 
-    std::cout << "Running parallel_sort() ..." << std::endl;
+    std::cout << "Running parallel_sort1() ..." << std::endl;
 
-    constexpr std::size_t   n { 1003 };
+    constexpr std::size_t   n { 10'000 };
     std::list<std::size_t>  data (n);
 
     for (auto &iter : data) iter = ::rand();
 
+    const auto              first = high_resolution_clock::now();
     ParSorter               ps;
     std::list<std::size_t>  sorted_data = ps.do_sort(data);
     auto                    data_end = --(sorted_data.cend());
+    const auto              second = high_resolution_clock::now();
+
+    std::cout << "Sorting " << n << " items time: "
+              << double(duration_cast<microseconds>(second - first).count()) /
+                 1000000.0
+              << " secs" << std::endl;
 
     assert(sorted_data.size() == n);
     for (auto citer = sorted_data.begin(); citer != data_end; )
@@ -126,9 +135,240 @@ static void parallel_sort()  {
 
 // ----------------------------------------------------------------------------
 
+template<typename I, typename P, std::size_t TH = 500'000>
+void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
+
+    using value_type = typename std::iterator_traits<I>::value_type;
+    using fut_type = std::future<void>;
+
+    if (begin >= end) return;
+
+    const std::size_t   data_size = std::distance(begin, end);
+
+    if (data_size > 0)  {
+        auto                left_iter = begin;
+        auto                right_iter = end;
+        bool                is_swapped_left = false;
+        bool                is_swapped_right = false;
+        const value_type    pivot = *begin;
+        auto                fwd_iter = begin + 1;
+
+        while (fwd_iter <= right_iter)  {
+            if (compare(*fwd_iter, pivot))  {
+                is_swapped_left = true;
+                std::iter_swap(left_iter, fwd_iter);
+                ++left_iter;
+                ++fwd_iter;
+            }
+            else if (compare(pivot, *fwd_iter))  {
+                is_swapped_right = true;
+                std::iter_swap(right_iter, fwd_iter);
+                --right_iter;
+            }
+            else ++fwd_iter;
+        }
+
+        const bool  do_left =
+            is_swapped_left && std::distance(begin, left_iter) > 0;
+        const bool  do_right =
+            is_swapped_right && std::distance(right_iter, end) > 0;
+
+        if (data_size >= TH)  {
+            fut_type    left_fut;
+            fut_type    right_fut;
+
+            if (do_left)
+                left_fut = thr_pool.dispatch(false,
+                                             sort_data2<I, P, TH>,
+                                             begin,
+                                             left_iter - 1,
+                                             compare,
+                                             std::ref(thr_pool));
+            if (do_right)
+                right_fut = thr_pool.dispatch(false,
+                                              sort_data2<I, P, TH>,
+                                              right_iter + 1,
+                                              end,
+                                              compare,
+                                              std::ref(thr_pool));
+
+            if (do_left)
+                while (left_fut.wait_for(std::chrono::seconds(0)) ==
+                           std::future_status::timeout)
+                    thr_pool.run_task();
+            if (do_right)
+                while (right_fut.wait_for(std::chrono::seconds(0)) ==
+                           std::future_status::timeout)
+                    thr_pool.run_task();
+        }
+        else  {
+            if (do_left)
+                sort_data2<I, P, TH>(begin, left_iter - 1, compare, thr_pool);
+
+            if (do_right)
+                sort_data2<I, P, TH>(right_iter + 1, end, compare, thr_pool);
+        }
+    }
+}
+
+// --------------------------------------
+
+static void parallel_sort2()  {
+
+    std::cout << "Running parallel_sort2() ..." << std::endl;
+
+    constexpr std::size_t   n { 60'000'000 };
+    std::vector<double>     data (n);
+    ThreadPool              thr_pool { };
+
+    for (auto &iter : data) iter = ::rand();
+
+    const auto  first = high_resolution_clock::now();
+
+    sort_data2(data.begin(), data.end(), std::less<double>{ }, thr_pool);
+
+    const auto  second = high_resolution_clock::now();
+
+    std::cout << "Sorting " << n << " items time: "
+              << double(duration_cast<microseconds>(second - first).count()) /
+                 1000000.0
+              << " secs" << std::endl;
+
+    for (auto citer = data.cbegin(); citer < (data.cend() - 1); ++citer)
+        assert((*citer <= *(citer + 1)));
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
+static void standard_sort()  {
+
+    std::cout << "Running standard_sort() ..." << std::endl;
+
+    constexpr std::size_t   n { 60'000'000 };
+    std::vector<double>     data (n);
+
+    for (auto &iter : data) iter = ::rand();
+
+    const auto  first = high_resolution_clock::now();
+
+    std::sort(data.begin(), data.end());
+
+    const auto  second = high_resolution_clock::now();
+
+    std::cout << "Sorting " << n << " items time: "
+              << double(duration_cast<microseconds>(second - first).count()) /
+                 1000000.0
+              << " secs" << std::endl;
+
+    for (auto citer = data.cbegin(); citer < (data.cend() - 1); ++citer)
+        assert((*citer <= *(citer + 1)));
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
+struct  IterativeSort  {
+
+    template<typename I, typename P>
+    void do_sort(I first, I last, P compare)  {
+
+        std::stack<I>   stack;
+
+        // push initial values of first and last to stack
+        //
+        stack.push(first);
+        stack.push(last);
+ 
+        // Keep popping from stack while is not empty
+        //
+        while (! stack.empty())  {
+            last = stack.top();
+            stack.pop();
+            first = stack.top();
+            stack.pop();
+ 
+            // Set pivot element at its correct position
+            // in sorted range
+            //
+            const auto  pivot = partition(first, last, compare);
+ 
+            // If there are elements on left side of pivot,
+            // then push left side to stack
+            //
+            if (pivot - 1 > first) {
+                stack.push(first);
+                stack.push(pivot - 1);
+            }
+ 
+            // If there are elements on right side of pivot,
+            // then push right side to stack
+            //
+            if (pivot + 1 < last) {
+                stack.push(pivot + 1);
+                stack.push(last);
+            }
+        }
+    }
+
+private:
+
+    template<typename I, typename P>
+    inline static I partition(I &first, I &last, P compare)  {
+
+        using value_type = typename std::iterator_traits<I>::value_type;
+
+        const value_type    &val = *last;
+        auto                i = first - 1;
+
+        for (auto j = first; j < last; j++)  {
+            if (compare(*j, val))  {
+                ++i;
+                std::iter_swap(i, j);
+            }
+        }
+        ++i;
+        std::iter_swap(i, last);
+        return (i);
+    }
+};
+
+// --------------------------------------
+
+static void interative_sort()  {
+
+    std::cout << "Running interative_sort() ..." << std::endl;
+
+    constexpr std::size_t   n { 60'000'000 };
+    std::vector<double>     data (n);
+
+    for (auto &iter : data) iter = ::rand();
+
+    const auto      first = high_resolution_clock::now();
+    IterativeSort   is;
+
+    is.do_sort(data.begin(), data.end(), std::less<double>{ });
+
+    const auto  second = high_resolution_clock::now();
+
+    std::cout << "Sorting " << n << " items time: "
+              << double(duration_cast<microseconds>(second - first).count()) /
+                 1000000.0
+              << " secs" << std::endl;
+
+    for (auto citer = data.cbegin(); citer < (data.cend() - 1); ++citer)
+        assert((*citer <= *(++citer)));
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
 int main (int, char *[])  {
 
-    parallel_sort();
+    parallel_sort1();
+    parallel_sort2();
+    standard_sort();
+    interative_sort();
 
     return (EXIT_SUCCESS);
 }
