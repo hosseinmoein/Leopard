@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Leopard/ThreadPool.h>
 
 #include <cassert>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -40,6 +41,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <vector>
 
 using namespace hmthrp;
+using namespace std::chrono;
 
 // ----------------------------------------------------------------------------
 
@@ -416,14 +418,43 @@ static void conditioner_test()  {
 
 // ----------------------------------------------------------------------------
 
+static void parallel_sort_test()  {
+
+    std::cout << "Running parallel_sort_test() ..." << std::endl;
+
+    constexpr std::size_t   n { 60'000'000 };
+    std::vector<double>     data (n);
+
+    for (auto &iter : data) iter = ::rand();
+
+    ThreadPool  thr_pool {  };
+    const auto  first = high_resolution_clock::now();
+
+    thr_pool.parallel_sort(data.begin(), data.end());
+
+    const auto  second = high_resolution_clock::now();
+
+    std::cout << "Sorting " << n << " items time: "
+              << double(duration_cast<microseconds>(second - first).count()) /
+                 1000000.0
+              << " secs" << std::endl;
+
+    for (auto citer = data.cbegin(); citer < (data.cend() - 1); ++citer)
+        assert((*citer <= *(citer + 1)));
+    return;
+}
+
+// ----------------------------------------------------------------------------
+
 int main (int, char *[])  {
 
-    haphazard();
     repeating_thread_id();
     zero_thread_test();
     parallel_loop_test();
     attach_test();
     conditioner_test();
+    parallel_sort_test();
+    haphazard();
 
     return (EXIT_SUCCESS);
 }

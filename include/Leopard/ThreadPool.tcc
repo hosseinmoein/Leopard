@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Leopard/ThreadPool.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <memory>
@@ -180,6 +181,98 @@ ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
     }
 
     return (ret);
+}
+
+// ----------------------------------------------------------------------------
+
+template<std::random_access_iterator I, std::size_t TH>
+void
+ThreadPool::parallel_sort(I begin, I end)  {
+
+    using value_type = typename std::iterator_traits<I>::value_type;
+
+    auto    compare = std::less<value_type>{ };
+
+    parallel_sort<I, decltype(compare), TH>(begin, end, std::move(compare));
+}
+
+// ----------------------------------------------------------------------------
+
+template<std::random_access_iterator I, typename P, std::size_t TH>
+void
+ThreadPool::parallel_sort(I begin, I end, P compare)  {
+
+    using value_type = typename std::iterator_traits<I>::value_type;
+    using fut_type = std::future<void>;
+
+    if (begin >= end) return;
+
+    const std::size_t   data_size = std::distance(begin, end);
+
+    if (data_size > 0)  {
+        auto                left_iter = begin;
+        auto                right_iter = end;
+        bool                is_swapped_left = false;
+        bool                is_swapped_right = false;
+        const value_type    pivot = *begin;
+        auto                fwd_iter = begin + 1;
+
+        while (fwd_iter <= right_iter)  {
+            if (compare(*fwd_iter, pivot))  {
+                is_swapped_left = true;
+                std::iter_swap(left_iter, fwd_iter);
+                ++left_iter;
+                ++fwd_iter;
+            }
+            else if (compare(pivot, *fwd_iter))  {
+                is_swapped_right = true;
+                std::iter_swap(right_iter, fwd_iter);
+                --right_iter;
+            }
+            else ++fwd_iter;
+        }
+
+        const bool  do_left =
+            is_swapped_left && std::distance(begin, left_iter) > 0;
+        const bool  do_right =
+            is_swapped_right && std::distance(right_iter, end) > 0;
+
+        if (data_size >= TH)  {
+            fut_type    left_fut;
+            fut_type    right_fut;
+
+            if (do_left)
+                left_fut = dispatch(false,
+                                    &ThreadPool::parallel_sort<I, P, TH>,
+                                    this,
+                                    begin,
+                                    left_iter - 1,
+                                    compare);
+            if (do_right)
+                right_fut = dispatch(false,
+                                     &ThreadPool::parallel_sort<I, P, TH>,
+                                     this,
+                                     right_iter + 1,
+                                     end,
+                                     compare);
+
+            if (do_left)
+                while (left_fut.wait_for(std::chrono::seconds(0)) ==
+                           std::future_status::timeout)
+                    run_task();
+            if (do_right)
+                while (right_fut.wait_for(std::chrono::seconds(0)) ==
+                           std::future_status::timeout)
+                    run_task();
+        }
+        else  {
+            if (do_left)
+                parallel_sort<I, P, TH>(begin, left_iter - 1, compare);
+
+            if (do_right)
+                parallel_sort<I, P, TH>(right_iter + 1, end, compare);
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------

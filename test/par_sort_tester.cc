@@ -136,22 +136,22 @@ static void parallel_sort1()  {
 // ----------------------------------------------------------------------------
 
 template<typename I, typename P, std::size_t TH = 500'000>
-void sort_data2(I first, I last, P compare, ThreadPool &thr_pool)  {
+void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
 
     using value_type = typename std::iterator_traits<I>::value_type;
     using fut_type = std::future<void>;
 
-    if (first >= last) return;
+    if (begin >= end) return;
 
-    const std::size_t   data_size = std::distance(first, last);
+    const std::size_t   data_size = std::distance(begin, end);
 
     if (data_size > 0)  {
-        auto                left_iter = first;
-        auto                right_iter = last;
+        auto                left_iter = begin;
+        auto                right_iter = end;
         bool                is_swapped_left = false;
         bool                is_swapped_right = false;
-        const value_type    pivot = *first;
-        auto                fwd_iter = first + 1;
+        const value_type    pivot = *begin;
+        auto                fwd_iter = begin + 1;
 
         while (fwd_iter <= right_iter)  {
             if (compare(*fwd_iter, pivot))  {
@@ -169,9 +169,9 @@ void sort_data2(I first, I last, P compare, ThreadPool &thr_pool)  {
         }
 
         const bool  do_left =
-            is_swapped_left && std::distance(first, left_iter) > 0;
+            is_swapped_left && std::distance(begin, left_iter) > 0;
         const bool  do_right =
-            is_swapped_right && std::distance(right_iter, last) > 0;
+            is_swapped_right && std::distance(right_iter, end) > 0;
 
         if (data_size >= TH)  {
             fut_type    left_fut;
@@ -180,7 +180,7 @@ void sort_data2(I first, I last, P compare, ThreadPool &thr_pool)  {
             if (do_left)
                 left_fut = thr_pool.dispatch(false,
                                              sort_data2<I, P, TH>,
-                                             first,
+                                             begin,
                                              left_iter - 1,
                                              compare,
                                              std::ref(thr_pool));
@@ -188,7 +188,7 @@ void sort_data2(I first, I last, P compare, ThreadPool &thr_pool)  {
                 right_fut = thr_pool.dispatch(false,
                                               sort_data2<I, P, TH>,
                                               right_iter + 1,
-                                              last,
+                                              end,
                                               compare,
                                               std::ref(thr_pool));
 
@@ -203,10 +203,10 @@ void sort_data2(I first, I last, P compare, ThreadPool &thr_pool)  {
         }
         else  {
             if (do_left)
-                sort_data2(first, left_iter - 1, compare, thr_pool);
+                sort_data2<I, P, TH>(begin, left_iter - 1, compare, thr_pool);
 
             if (do_right)
-                sort_data2(right_iter + 1, last, compare, thr_pool);
+                sort_data2<I, P, TH>(right_iter + 1, end, compare, thr_pool);
         }
     }
 }
