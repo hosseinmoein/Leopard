@@ -121,6 +121,13 @@ public:
     loop_res_t<F, I, As ...>
     parallel_loop(I begin, I end, F &&routine, As && ... args);
 
+    template<std::random_access_iterator I, std::size_t TH = 500'000>
+    void parallel_sort(I begin, I end);
+    template<std::random_access_iterator I, typename P,
+             std::size_t TH = 500'000>
+    void parallel_sort(I begin, I end, P compare);
+
+
     // It attaches the current thread to the pool so that it may be used for
     // executing submitted tasks. It blocks the calling thread until the pool
     // is shutdown or the thread is timed-out.
