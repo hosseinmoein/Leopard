@@ -34,8 +34,8 @@ This is a light-weight C++ Thread Pool that allows running any callable similar 
 <style>
 table th:first-of-type { width: 10%; }
 table th:nth-of-type(2) { width: 40%; }
-table th:nth-of-type(3) { width: 40%; }
-table th:nth-of-type(4) { width: 10%; }
+table th:nth-of-type(3) { width: 42%; }
+table th:nth-of-type(4) { width: 8%; }
 </style>
 
 | **Member Function**        | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | **Parameters**                                                                                                                                                                                                                                                                                                                                                                       | Code Sample |
