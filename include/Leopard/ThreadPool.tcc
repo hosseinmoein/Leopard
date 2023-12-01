@@ -211,7 +211,7 @@ ThreadPool::parallel_sort(I begin, I end, P compare)  {
 
     if (data_size > 0)  {
         auto                left_iter = begin;
-        auto                right_iter = end;
+        auto                right_iter = end - 1;
         bool                is_swapped_left = false;
         bool                is_swapped_right = false;
         const value_type    pivot = *begin;
@@ -246,7 +246,7 @@ ThreadPool::parallel_sort(I begin, I end, P compare)  {
                                     &ThreadPool::parallel_sort<I, P, TH>,
                                     this,
                                     begin,
-                                    left_iter - 1,
+                                    left_iter,
                                     compare);
             if (do_right)
                 right_fut = dispatch(false,
@@ -267,7 +267,7 @@ ThreadPool::parallel_sort(I begin, I end, P compare)  {
         }
         else  {
             if (do_left)
-                parallel_sort<I, P, TH>(begin, left_iter - 1, compare);
+                parallel_sort<I, P, TH>(begin, left_iter, compare);
 
             if (do_right)
                 parallel_sort<I, P, TH>(right_iter + 1, end, compare);

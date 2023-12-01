@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Leopard/ThreadPool.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -136,7 +137,7 @@ static void parallel_sort1()  {
 // ----------------------------------------------------------------------------
 
 template<typename I, typename P, std::size_t TH = 500'000>
-void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
+void sort_data2(const I begin, const I end, P compare, ThreadPool &thr_pool)  {
 
     using value_type = typename std::iterator_traits<I>::value_type;
     using fut_type = std::future<void>;
@@ -147,7 +148,7 @@ void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
 
     if (data_size > 0)  {
         auto                left_iter = begin;
-        auto                right_iter = end;
+        auto                right_iter = end - 1;
         bool                is_swapped_left = false;
         bool                is_swapped_right = false;
         const value_type    pivot = *begin;
@@ -181,7 +182,7 @@ void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
                 left_fut = thr_pool.dispatch(false,
                                              sort_data2<I, P, TH>,
                                              begin,
-                                             left_iter - 1,
+                                             left_iter,
                                              compare,
                                              std::ref(thr_pool));
             if (do_right)
@@ -203,7 +204,7 @@ void sort_data2(I begin, I end, P compare, ThreadPool &thr_pool)  {
         }
         else  {
             if (do_left)
-                sort_data2<I, P, TH>(begin, left_iter - 1, compare, thr_pool);
+                sort_data2<I, P, TH>(begin, left_iter, compare, thr_pool);
 
             if (do_right)
                 sort_data2<I, P, TH>(right_iter + 1, end, compare, thr_pool);
@@ -218,9 +219,10 @@ static void parallel_sort2()  {
     std::cout << "Running parallel_sort2() ..." << std::endl;
 
     constexpr std::size_t   n { 60'000'000 };
-    std::vector<double>     data (n);
+    std::vector<int>     data (n);
     ThreadPool              thr_pool { };
 
+    ::srand(10);
     for (auto &iter : data) iter = ::rand();
 
     const auto  first = high_resolution_clock::now();
