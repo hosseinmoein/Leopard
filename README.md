@@ -26,6 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard )
+[![GitHub tag (latest by date)](https://img.shields.io/github/tag-date/hosseinmoein/Leopard.svg?color=blue&label=Official%20Release&style=popout)](https://github.com/hosseinmoein/Leopard/releases)
 [![Conan Center](https://img.shields.io/conan/v/leopard)](https://conan.io/center/recipes/leopard)
 
 <img src="docs/Leopard.jpg" alt="ThreadPool Leopard" width="400" longdesc="https://htmlpreview.github.io/?https://github.com/hosseinmoein/ThreadPool/blob/master/README.md"/>
