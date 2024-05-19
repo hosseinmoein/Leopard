@@ -118,7 +118,7 @@ private:
 struct  ReduceFunc  {
 
     WordCountMap
-    operator() (WordCountMap &map1, const WordCountMap &map2)  {
+    operator() (WordCountMap &&map1, const WordCountMap &map2) const  {
 
         WordCountMap    wmap = std::move(map1);
 
@@ -200,8 +200,7 @@ static void par_map_reduce()  {
     for (auto &item : fut_maps)
         maps2.push_back(item.get());
 
-    const auto  final_map = std::reduce(/*std::execution::par,*/
-                                        maps2.begin(), maps2.end(),
+    const auto  final_map = std::reduce(maps2.begin(), maps2.end(),
                                         WordCountMap { },
                                         ReduceFunc { });
     const auto  last = std::chrono::high_resolution_clock::now();

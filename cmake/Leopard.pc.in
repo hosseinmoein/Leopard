@@ -3,7 +3,7 @@ exec_prefix=${prefix}
 includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
 libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
 
-Name: ThreadPool
+Name: Leopard
 Description: C++ light-weight thread-pool library
 Version: @PROJECT_VERSION@
 Cflags: -I${includedir}
