@@ -1,0 +1,377 @@
+<h1></h1>
+<!--
+Copyright (c) 2019-2026, Hossein Moein
+All rights reserved<h1></h1>
+.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+* Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or <h1></h1>
+  other materials provided with the distribution.
+* Neither the name of Hossein Moein and/or the Leopard nor the
+  names of its contributors may be used to endorse or promote products
+  derived from this software without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL Hossein Moein BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+
+<style>
+
+body {
+  background-image: linear-gradient(Azure, AliceBlue, GhostWhite, WhiteSmoke, SeaShell);
+}
+</style>
+
+</head>
+
+<body style="font-family: Georgia, serif">
+
+  <center>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="90" height="90"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="120" height="120"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="150" height="150"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="180" height="180"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="150" height="150"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="120" height="120"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="90" height="90"/>
+    <img src="https://github.com/hosseinmoein/Leopard/blob/master/docs/Leopard.jpg?raw=true" alt="Leopard Threadpool" width="60" height="60"/>
+  </center>
+  <BR>
+
+  <table border="1" style="width: 100%;">
+
+    <tr bgcolor="lightblue">
+      <th>Member Function</th> <th>Description</th> <th>Parameters</th> <th>Code Sample</th>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+explicit
+ThreadPool(
+    size_type thr_num = std::thread::hardware_concurrency(),
+    Conditioner pre_conditioner = Conditioner { },
+    Conditioner post_conditioner = Conditioner { });
+
+
+ThreadPool(const ThreadPool &amp;) = delete;
+ThreadPool &amp;operator = (const ThreadPool &amp;) = delete;
+        </PRE>
+      </td>
+      <td>
+        <I>Conditioner</I> struct represents (is a wrapper around) a single executable function. See <I>ThreadPool.h</I>. It is used in ThreadPool to specify user custom initializers and cleanups per thread.<BR><BR>
+        ThreadPool has only one constructor with all default values.<BR>
+        Conditioner(s) are a handy interface, if threads need to be initialized before doing anything. And/or they need a cleanup before exiting. For example, see Windows CoInitializeEx function in COM library. See <I>conditioner_test()</I> in <I>thrpool_tester.cc</I> file for code sample
+      </td>
+      <td width="35%">
+        <B>thr_num</B>: Number of initial threads -- defaulted to number of cores in the computer.<BR>
+        <B>pre_conditioner:</B> A function that will execute at the start of each thread in the pool once<BR>
+        <B>post_conditioner</B>: A function that will execute at the end of each thread in the pool once
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L383"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+void
+set_timeout(bool timeout_flag,
+            time_type timeout_time = 30 * 60);
+        </PRE><B>
+      </td>
+      <td>
+        It enables/disables timeouts for threads. If timeout is enabled and a thread idles more than timeout period, it will terminate
+      </td>
+      <td width="35%">
+        <B>timeout_flag</B>: Boolean flag to enable/disable timeout mechanism<BR>
+        <B>timeout_time</B>: time_t value to specify the timeout period in seconds -- defaulted to 30 minutes
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+template&lt;typename F, typename ... As&gt;
+dispatch_res_t&lt;F, As ...&gt;
+dispatch(bool immediately,
+         F &amp;routine,
+         As &amp;&amp; ... args);
+        </PRE>
+      </td>
+      <td>
+        It dispatches a task into the thread-pool queue. If a thread is available the task will run. If no thread is available, the task will be added to a queue until a thread becomes available. Dispatch interface is identical to <I>std::async()</I> with one exception.<BR>
+        <I>dispatch()</I> returns a <I>std::future</I> of the type of your callable return type
+      </td>
+      <td width="35%">
+        <B>immediately</B>: A boolean flag, If true and no thread is available, a thread will be added to the pool and the task runs immediately.<BR>
+        <B>routine</B>: A callable reference<BR>
+        <B>args ...</B>: A variadic list of parameters matching your callable parameter list
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L209"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+template&lt;typename F, typename I, typename ... As&gt;
+loop_res_t&lt;F, I, As ...&gt;
+parallel_loop(I begin,
+              I end,
+              F &amp;&amp;routine,
+              As &amp;&amp; ... args);
+        </PRE>
+      </td>
+      <td>
+        It parallelizes a big class of problems very conveniently. It divides the data elements between begin and end to <I>n</I> blocks by dividing by number of capacity threads. It dispatches the <I>n</I> tasks.<BR>
+        <I>parallel_loop()</I> returns a <I>std::vector</I> of <I>std::future</I> corresponding to the above <I>n</I> tasks.
+      </td>
+      <td width="35%">
+        <B>begin</B>: An iterator to mark the beginning of the sequence. It can either be proper a iterator or integral type index<BR>
+        <B>end</B>: An iterator to mark the end of the sequence. It can either be proper a iterator or integral type index<BR>
+        <B>routine</B>: A reference to a callable<BR>
+        <B>args ...</B>: A variadic list of parameters matching your callable parameter list
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L272"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+template&lt;std::random_access_iterator I,
+         std::size_t TH = 500000&gt;
+void
+parallel_sort(I begin,
+              I end);
+        </PRE>
+      </td>
+      <td>
+        It uses a parallel version of 3-way quick sort.<BR>
+        This version calls the quick sort with std::less as comparison functor
+      </td>
+      <td width="35%">
+        <B>begin</B>: An iterator to mark the beginning of the sequence.<BR>
+        <B>end</B>: An iterator to mark the end of the sequence<BR>
+        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 500,000
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L421"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+template&lt;std::random_access_iterator I, typename P,
+         std::size_t TH = 500000&gt;
+void
+parallel_sort(I begin,
+              I end,
+              P compare);
+        </PRE>
+      </td>
+      <td>
+        It uses a parallel version of 3-way quick sort.<BR>
+        This version requires a comparison functor
+      </td>
+      <td width="35%">
+        <B>begin</B>: An iterator to mark the beginning of the sequence.<BR>
+        <B>end</B>: An iterator to mark the end of the sequence<BR>
+        <B>compare</B>: Comparison functor<BR>
+        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 500,000
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L421"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+void
+attach(thread_type &amp;&amp;this_thr);
+        </PRE>
+      </td>
+      <td>
+        It attaches the current thread to the pool so that it may be used for executing submitted tasks. It blocks the calling thread until the pool is shutdown or the thread is timed-out. This is handy, if you already have thread(s), and want to repurpose them
+      </td>
+      <td width="35%">
+        <B>this_thr</B>: The parameter is a rvalue reference to the std::thread instance of the calling thread
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L319"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+bool
+run_task();
+        </PRE>
+      </td>
+      <td>
+        If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns <I>true</I>, if a task was executed, otherwise <I>false</I>. The return value of the task could be obtained from the original <I>std::future</I> object when it was dispatched.<BR>
+        <B>NOTE</B>: A <I>false</I> return from <I>run_task()</I> does not necessarily mean there were no tasks in thread pool queue. It might be that <I>run_task()</I> just encountered one of the thread pool internal maintenance tasks which it ignored and returned <I>false</I>.
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/par_sort_tester.cc#L51"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+bool
+add_thread(size_type thr_num);
+        </PRE>
+      </td>
+      <td>
+        At any point you can add/subtract threads to/from the pool
+      </td>
+      <td width="35%">
+        <B>thr_num</B>: Number of threads to be added/subtracted. It can either be a positive or negative number
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+size_type
+available_threads() const;
+        </PRE>
+      </td>
+      <td>
+        At any point you can query the ThreadPool for available threads.
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+size_type
+capacity_threads() const;
+        </PRE>
+      </td>
+      <td>
+        At any point you can query the ThreadPool for capacity threads.
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+size_type
+pending_tasks() const;
+        </PRE>
+      </td>
+      <td>
+        At any point you can query the ThreadPool for number of tasks currently waiting in the <I>global</I> queue
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+bool
+shutdown();
+        </PRE>
+      </td>
+      <td>
+        At any point you can call <I>shutdown()</I> to signal the ThreadPool to terminate all threads after they are done running tasks. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L232"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+bool
+is_shutdown() const;
+        </PRE>
+      </td>
+      <td>
+        It returns<I>true</I> if the pool is shutdown, otherwise <I>false</I>
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
+      </td>
+    </tr>
+
+    <tr bgcolor="Azure">
+      <td bgcolor="blue"> <font color="white">
+        <PRE><B>
+~Threadpool();
+        </PRE>
+      </td>
+      <td>
+        It calls <I>shutdown()</I> and waits until all threads are done running tasks
+      </td>
+      <td width="35%">
+      </td>
+      <td>
+      </td>
+    </tr>
+
+  </table>
+
+  <BR>
+  <BR><a href="https://github.com/hosseinmoein/Leopard?tab=readme-ov-file">&#8592; Back to Github</a><BR>
+
+</body></html>
+
+<!--
+Local Variables:
+mode:HTML
+tab-width:4
+c-basic-offset:4
+End:
+-->
