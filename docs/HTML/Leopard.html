@@ -58,18 +58,17 @@ body {
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-explicit
-ThreadPool(
-    size_type thr_num = std::thread::hardware_concurrency(),
-    Conditioner pre_conditioner = Conditioner { },
-    Conditioner post_conditioner = Conditioner { });
-
-
-ThreadPool(const ThreadPool &amp;) = delete;
-ThreadPool &amp;operator = (const ThreadPool &amp;) = delete;
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">explicit</span></span>
+<span class="line_wrapper">ThreadPool<span style="color:#808030; ">(</span></span>
+<span class="line_wrapper">    size_type thr_num <span style="color:#808030; ">=</span> <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span>thread<span style="color:#800080; ">::</span>hardware_concurrency<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span><span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">    Conditioner pre_conditioner <span style="color:#808030; ">=</span> Conditioner <span style="color:#800080; ">{</span> <span style="color:#800080; ">}</span><span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">    Conditioner post_conditioner <span style="color:#808030; ">=</span> Conditioner <span style="color:#800080; ">{</span> <span style="color:#800080; ">}</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span>
+<span class="line_wrapper"></span>
+<span class="line_wrapper">ThreadPool<span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">const</span> ThreadPool <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">)</span> <span style="color:#808030; ">=</span> <span style="color:#800000; font-weight:bold; ">delete</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper">ThreadPool <span style="color:#808030; ">&amp;</span><span style="color:#800000; font-weight:bold; ">operator</span> <span style="color:#808030; ">=</span> <span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">const</span> ThreadPool <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">)</span> <span style="color:#808030; ">=</span> <span style="color:#800000; font-weight:bold; ">delete</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         <I>Conditioner</I> struct represents (is a wrapper around) a single executable function. See <I>ThreadPool.h</I>. It is used in ThreadPool to specify user custom initializers and cleanups per thread.<BR><BR>
@@ -87,12 +86,11 @@ ThreadPool &amp;operator = (const ThreadPool &amp;) = delete;
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-void
-set_timeout(bool timeout_flag,
-            time_type timeout_time = 30 * 60);
-        </PRE><B>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
+<span class="line_wrapper">set_timeout<span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">bool</span> timeout_flag<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">            time_type timeout_time <span style="color:#808030; ">=</span> <span style="color:#008c00; ">30</span> <span style="color:#808030; ">*</span> <span style="color:#008c00; ">60</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It enables/disables timeouts for threads. If timeout is enabled and a thread idles more than timeout period, it will terminate
@@ -107,14 +105,13 @@ set_timeout(bool timeout_flag,
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-template&lt;typename F, typename ... As&gt;
-dispatch_res_t&lt;F, As ...&gt;
-dispatch(bool immediately,
-         F &amp;routine,
-         As &amp;&amp; ... args);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#800000; font-weight:bold; ">typename</span> F<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span> As<span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper">dispatch_res_t<span style="color:#808030; ">&lt;</span>F<span style="color:#808030; ">,</span> As <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">&gt;</span></span>
+<span class="line_wrapper">dispatch<span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">bool</span> immediately<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">         F <span style="color:#808030; ">&amp;</span>routine<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">         As <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">&amp;</span> <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span> args<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It dispatches a task into the thread-pool queue. If a thread is available the task will run. If no thread is available, the task will be added to a queue until a thread becomes available. Dispatch interface is identical to <I>std::async()</I> with one exception.<BR>
@@ -131,15 +128,14 @@ dispatch(bool immediately,
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-template&lt;typename F, typename I, typename ... As&gt;
-loop_res_t&lt;F, I, As ...&gt;
-parallel_loop(I begin,
-              I end,
-              F &amp;&amp;routine,
-              As &amp;&amp; ... args);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#800000; font-weight:bold; ">typename</span> F<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> I<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span> As<span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper">loop_res_t<span style="color:#808030; ">&lt;</span>F<span style="color:#808030; ">,</span> I<span style="color:#808030; ">,</span> As <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">&gt;</span></span>
+<span class="line_wrapper">parallel_loop<span style="color:#808030; ">(</span>I begin<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">              I end<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">              F <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">&amp;</span>routine<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">              As <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">&amp;</span> <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span> args<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It parallelizes a big class of problems very conveniently. It divides the data elements between begin and end to <I>n</I> blocks by dividing by number of capacity threads. It dispatches the <I>n</I> tasks.<BR>
@@ -157,14 +153,12 @@ parallel_loop(I begin,
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-template&lt;std::random_access_iterator I,
-         std::size_t TH = 500000&gt;
-void
-parallel_sort(I begin,
-              I end);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#666616; ">std</span><span style="color:#800080; ">::</span>random_access_iterator I<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">500000</span><span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
+<span class="line_wrapper">parallel_sort<span style="color:#808030; ">(</span>I begin<span style="color:#808030; ">,</span> I end<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It uses a parallel version of 3-way quick sort.<BR>
@@ -181,15 +175,11 @@ parallel_sort(I begin,
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-template&lt;std::random_access_iterator I, typename P,
-         std::size_t TH = 500000&gt;
-void
-parallel_sort(I begin,
-              I end,
-              P compare);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#666616; ">std</span><span style="color:#800080; ">::</span>random_access_iterator I<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> P<span style="color:#808030; ">,</span></span>
+<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">500000</span><span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
+<span class="line_wrapper">parallel_sort<span style="color:#808030; ">(</span>I begin<span style="color:#808030; ">,</span> I end<span style="color:#808030; ">,</span> P compare<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span></pre>
       </td>
       <td>
         It uses a parallel version of 3-way quick sort.<BR>
@@ -207,11 +197,10 @@ parallel_sort(I begin,
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-void
-attach(thread_type &amp;&amp;this_thr);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
+<span class="line_wrapper">attach<span style="color:#808030; ">(</span>thread_type <span style="color:#808030; ">&amp;</span><span style="color:#808030; ">&amp;</span>this_thr<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It attaches the current thread to the pool so that it may be used for executing submitted tasks. It blocks the calling thread until the pool is shutdown or the thread is timed-out. This is handy, if you already have thread(s), and want to repurpose them
@@ -225,11 +214,10 @@ attach(thread_type &amp;&amp;this_thr);
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-bool
-run_task();
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">bool</span></span>
+<span class="line_wrapper">run_task<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         If the pool is not shutdown and there is a pending task in the queue, it runs it on the calling thread synchronously. It returns <I>true</I>, if a task was executed, otherwise <I>false</I>. The return value of the task could be obtained from the original <I>std::future</I> object when it was dispatched.<BR>
@@ -243,11 +231,10 @@ run_task();
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-bool
-add_thread(size_type thr_num);
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">bool</span></span>
+<span class="line_wrapper">add_thread<span style="color:#808030; ">(</span>size_type thr_num<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         At any point you can add/subtract threads to/from the pool
@@ -261,11 +248,10 @@ add_thread(size_type thr_num);
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-size_type
-available_threads() const;
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper">size_type</span>
+<span class="line_wrapper">available_threads<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span> <span style="color:#800000; font-weight:bold; ">const</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         At any point you can query the ThreadPool for available threads.
@@ -278,11 +264,10 @@ available_threads() const;
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-size_type
-capacity_threads() const;
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper">size_type</span>
+<span class="line_wrapper">capacity_threads<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span> <span style="color:#800000; font-weight:bold; ">const</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         At any point you can query the ThreadPool for capacity threads.
@@ -295,11 +280,10 @@ capacity_threads() const;
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-size_type
-pending_tasks() const;
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper">size_type</span>
+<span class="line_wrapper">pending_tasks<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span> <span style="color:#800000; font-weight:bold; ">const</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         At any point you can query the ThreadPool for number of tasks currently waiting in the <I>global</I> queue
@@ -312,11 +296,10 @@ pending_tasks() const;
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-bool
-shutdown();
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">bool</span></span>
+<span class="line_wrapper"><span style="color:#400000; ">shutdown</span><span style="color:#808030; ">(</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         At any point you can call <I>shutdown()</I> to signal the ThreadPool to terminate all threads after they are done running tasks. After shutdown, you cannot dispatch or add threads anymore -- exception will be thrown.
@@ -329,11 +312,10 @@ shutdown();
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-bool
-is_shutdown() const;
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">bool</span></span>
+<span class="line_wrapper">is_shutdown<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span> <span style="color:#800000; font-weight:bold; ">const</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It returns<I>true</I> if the pool is shutdown, otherwise <I>false</I>
@@ -346,10 +328,9 @@ is_shutdown() const;
     </tr>
 
     <tr bgcolor="Azure">
-      <td bgcolor="blue"> <font color="white">
-        <PRE><B>
-~Threadpool();
-        </PRE>
+      <td>
+<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#808030; ">~</span>Threadpool<span style="color:#808030; ">(</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
+<span class="line_wrapper"></span></pre>
       </td>
       <td>
         It calls <I>shutdown()</I> and waits until all threads are done running tasks
