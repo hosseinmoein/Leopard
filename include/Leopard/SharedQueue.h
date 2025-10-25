@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -39,10 +40,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace hmthrp
 {
-
-class   SQEmpty  { public: inline SQEmpty () noexcept  {   } };
-
-// ----------------------------------------------------------------------------
 
 template<typename T>
 class   SharedQueue  {
@@ -61,19 +58,13 @@ public:
 
     inline void push(const value_type &element) noexcept;
 
-    inline const value_type &
-    front(bool wait_on_front = true) const; // throw (SQEmpty);
-    inline value_type &
-    front(bool wait_on_front = true); // throw (SQEmpty);
-
     // NOTE: The following method returns the data by value.
-    //       Therefore it is not as efficient as front().
+    //       Therefore, it is not as efficient as front().
     //       Use it only if you have to.
     //
     inline optional_ret
     pop_front(bool wait_on_front = true) noexcept;
 
-    void pop() noexcept;
     bool empty() const noexcept;
     size_type size() const noexcept;
 

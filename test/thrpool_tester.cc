@@ -97,7 +97,6 @@ static void haphazard()  {
 
     ThreadPool  thr_pool (THREAD_COUNT);
 
-    thr_pool.set_timeout(true, 10);
     thr_pool.add_thread(20);
 
     struct timespec rqt;

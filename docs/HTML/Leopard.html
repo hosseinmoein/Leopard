@@ -87,25 +87,6 @@ body {
 
     <tr bgcolor="Azure">
       <td>
-<pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
-<span class="line_wrapper">set_timeout<span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">bool</span> timeout_flag<span style="color:#808030; ">,</span></span>
-<span class="line_wrapper">            time_type timeout_time <span style="color:#808030; ">=</span> <span style="color:#008c00; ">30</span> <span style="color:#808030; ">*</span> <span style="color:#008c00; ">60</span><span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
-<span class="line_wrapper"></span></pre>
-      </td>
-      <td>
-        It enables/disables timeouts for threads. If timeout is enabled and a thread idles more than timeout period, it will terminate
-      </td>
-      <td width="35%">
-        <B>timeout_flag</B>: Boolean flag to enable/disable timeout mechanism<BR>
-        <B>timeout_time</B>: time_t value to specify the timeout period in seconds -- defaulted to 30 minutes
-      </td>
-      <td>
-        <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L94"><PRE>Code Sample</PRE></a>
-      </td>
-    </tr>
-
-    <tr bgcolor="Azure">
-      <td>
 <pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#800000; font-weight:bold; ">typename</span> F<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span> As<span style="color:#800080; ">&gt;</span></span>
 <span class="line_wrapper">dispatch_res_t<span style="color:#808030; ">&lt;</span>F<span style="color:#808030; ">,</span> As <span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">.</span><span style="color:#808030; ">&gt;</span></span>
 <span class="line_wrapper">dispatch<span style="color:#808030; ">(</span><span style="color:#800000; font-weight:bold; ">bool</span> immediately<span style="color:#808030; ">,</span></span>
@@ -155,7 +136,7 @@ body {
     <tr bgcolor="Azure">
       <td>
 <pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#666616; ">std</span><span style="color:#800080; ">::</span>random_access_iterator I<span style="color:#808030; ">,</span></span>
-<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">500000</span><span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">5000L</span><span style="color:#800080; ">&gt;</span></span>
 <span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
 <span class="line_wrapper">parallel_sort<span style="color:#808030; ">(</span>I begin<span style="color:#808030; ">,</span> I end<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span>
 <span class="line_wrapper"></span></pre>
@@ -167,7 +148,7 @@ body {
       <td width="35%">
         <B>begin</B>: An iterator to mark the beginning of the sequence.<BR>
         <B>end</B>: An iterator to mark the end of the sequence<BR>
-        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 500,000
+        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 5,000
       </td>
       <td>
         <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L421"><PRE>Code Sample</PRE></a>
@@ -177,7 +158,7 @@ body {
     <tr bgcolor="Azure">
       <td>
 <pre class="code_syntax" style="color:#000000;background:#ffffff00;"><span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">template</span><span style="color:#800080; ">&lt;</span><span style="color:#666616; ">std</span><span style="color:#800080; ">::</span>random_access_iterator I<span style="color:#808030; ">,</span> <span style="color:#800000; font-weight:bold; ">typename</span> P<span style="color:#808030; ">,</span></span>
-<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">500000</span><span style="color:#800080; ">&gt;</span></span>
+<span class="line_wrapper">         <span style="color:#666616; ">std</span><span style="color:#800080; ">::</span><span style="color:#603000; ">size_t</span> TH <span style="color:#808030; ">=</span> <span style="color:#008c00; ">5000L</span><span style="color:#800080; ">&gt;</span></span>
 <span class="line_wrapper"><span style="color:#800000; font-weight:bold; ">void</span></span>
 <span class="line_wrapper">parallel_sort<span style="color:#808030; ">(</span>I begin<span style="color:#808030; ">,</span> I end<span style="color:#808030; ">,</span> P compare<span style="color:#808030; ">)</span><span style="color:#800080; ">;</span></span></pre>
       </td>
@@ -189,7 +170,7 @@ body {
         <B>begin</B>: An iterator to mark the beginning of the sequence.<BR>
         <B>end</B>: An iterator to mark the end of the sequence<BR>
         <B>compare</B>: Comparison functor<BR>
-        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 500,000
+        <B>TH (template param)</B>:A threshold value below which a serialize sort will be used, defaulted to 5,000
       </td>
       <td>
         <a href="https://github.com/hosseinmoein/Leopard/blob/main/test/thrpool_tester.cc#L421"><PRE>Code Sample</PRE></a>

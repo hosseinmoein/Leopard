@@ -118,7 +118,7 @@ private:
 struct  ReduceFunc  {
 
     WordCountMap
-    operator() (WordCountMap &&map1, const WordCountMap &map2) const  {
+    operator() (WordCountMap &map1, const WordCountMap &map2) const  {
 
         WordCountMap    wmap = std::move(map1);
 
@@ -147,7 +147,6 @@ static void par_map_reduce()  {
     const auto                              m_chunk_size =
         data_size / THREAD_COUNT;
 
-    thr_pool.set_timeout(true, 10);
     fut_maps.reserve(THREAD_COUNT + 1);
     for (std::size_t i = 0; i < data_size; i += m_chunk_size)  {
         fut_maps.push_back(

@@ -108,7 +108,7 @@ private:
 
 // --------------------------------------
 
-static void parallel_sort1()  {
+void parallel_sort1()  {
 
     std::cout << "Running parallel_sort1() ..." << std::endl;
 
@@ -219,7 +219,7 @@ static void parallel_sort2()  {
     std::cout << "Running parallel_sort2() ..." << std::endl;
 
     constexpr std::size_t   n { 60'000'000 };
-    std::vector<int>     data (n);
+    std::vector<int>        data (n);
     ThreadPool              thr_pool { };
 
     ::srand(10);

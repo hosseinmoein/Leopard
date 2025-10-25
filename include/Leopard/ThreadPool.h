@@ -44,6 +44,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <chrono>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <stdexcept>
+#include <type_traits>
 
 // ----------------------------------------------------------------------------
 
@@ -77,8 +83,9 @@ class   ThreadPool  {
 public:
 
     using size_type = long;
-    using time_type = time_t;
     using thread_type = std::thread;
+
+    inline static constexpr size_type   MUL_THR_THHOLD = 250'000L;
 
     ThreadPool(const ThreadPool &) = delete;
     ThreadPool &operator = (const ThreadPool &) = delete;
@@ -93,8 +100,6 @@ public:
                Conditioner post_conditioner = Conditioner { });
     ~ThreadPool();
 
-    void set_timeout(bool timeout_flag, time_type timeout_time = 30 * 60);
-
     template<typename F, typename ... As>
     requires std::invocable<F, As ...>
     using dispatch_res_t =
@@ -107,6 +112,14 @@ public:
         std::vector<std::future<std::invoke_result_t<std::decay_t<F>,
                                                      std::decay_t<I>,
                                                      std::decay_t<I>,
+                                                     std::decay_t<As> ...>>>;
+    template<typename F, typename I1, typename I2, typename ... As>
+    requires std::invocable<F, I1, I1, I2, As ...>
+    using loop2_res_t =
+        std::vector<std::future<std::invoke_result_t<std::decay_t<F>,
+                                                     std::decay_t<I1>,
+                                                     std::decay_t<I1>,
+                                                     std::decay_t<I2>,
                                                      std::decay_t<As> ...>>>;
 
     // The return type of dispatch is std::future of return type of routine
@@ -122,11 +135,17 @@ public:
     loop_res_t<F, I, As ...>
     parallel_loop(I begin, I end, F &&routine, As && ... args);
 
-    template<std::random_access_iterator I, std::size_t TH = 500'000>
-    void parallel_sort(I begin, I end);
-    template<std::random_access_iterator I, typename P,
-             std::size_t TH = 500'000>
-    void parallel_sort(I begin, I end, P compare);
+    // Parallel loop operating with two ranges
+    //
+    template<typename F, typename I1, typename I2, typename ... As>
+    loop2_res_t<F, I1, I2, As ...>
+    parallel_loop2(I1 begin1, I1 end1, I2 begin2, I2 end2,
+                   F &&routine, As && ... args);
+
+    template<std::random_access_iterator I, long TH = 5000L>
+    void parallel_sort(const I begin, const I end);
+    template<std::random_access_iterator I, typename P, long TH = 5000L>
+    void parallel_sort(const I begin, const I end, P compare);
 
 
     // It attaches the current thread to the pool so that it may be used for
@@ -159,7 +178,6 @@ private:
         _undefined_ = 0,
         _client_service_ = 1,
         _terminate_ = 2,
-        _timeout_ = 3,
     };
 
     struct  WorkUnit  {
@@ -180,7 +198,6 @@ private:
     };
 
     bool thread_routine_(size_type local_q_idx) noexcept;  // Engine routine
-    void queue_timed_outs_() noexcept;
     WorkUnit get_one_local_task_() noexcept;
 
     using guard_type = std::lock_guard<std::mutex>;
@@ -199,9 +216,7 @@ private:
     std::atomic<size_type>  available_threads_ { 0 };
     std::atomic<size_type>  capacity_threads_ { 0 };
     std::atomic_bool        shutdown_flag_ { false };
-    time_type               timeout_time_ { 30 * 60 };
     mutable std::mutex      state_ { };
-    bool                    timeout_flag_ { false };
 
     Conditioner pre_conditioner_ { };
     Conditioner post_conditioner_ { };

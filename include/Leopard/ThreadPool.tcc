@@ -29,9 +29,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Leopard/ThreadPool.h>
 
-#include <chrono>
+#include <algorithm>
 #include <cstdlib>
-#include <ctime>
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
@@ -71,7 +70,7 @@ ThreadPool::ThreadPool(size_type thr_num,
 
 // ----------------------------------------------------------------------------
 
-ThreadPool::~ThreadPool()  {
+inline ThreadPool::~ThreadPool()  {
 
     shutdown();
     for (auto &routine : threads_)
@@ -81,203 +80,7 @@ ThreadPool::~ThreadPool()  {
 
 // ----------------------------------------------------------------------------
 
-void
-ThreadPool::set_timeout(bool timeout_flag, time_type timeout_time)  {
-
-    timeout_flag_ = timeout_flag;
-    timeout_time_ = timeout_time;
-}
-
-// ----------------------------------------------------------------------------
-
-void
-ThreadPool::queue_timed_outs_() noexcept  {
-
-    const size_type timeys { capacity_threads() };
-
-    for (size_type i = 0; i < timeys; ++i)  {
-        const WorkUnit  work_unit { WORK_TYPE::_timeout_ };
-
-        global_queue_.push(work_unit);
-    }
-
-    return;
-}
-
-// ----------------------------------------------------------------------------
-
-template<typename F, typename ... As>
-ThreadPool::dispatch_res_t<F, As ...>
-ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
-
-    if (is_shutdown() || (capacity_threads() == 0 && ! immediately))
-        throw std::runtime_error("ThreadPool::dispatch(): "
-                                 "Thread-pool has 0 thread capacity.");
-
-    using task_return_t =
-        std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
-    using future_t = dispatch_res_t<F, As ...>;
-
-    auto            callable  {
-        std::make_shared<std::packaged_task<task_return_t()>>
-            (std::bind(std::forward<F>(routine), std::forward<As>(args) ...))
-    };
-    future_t        return_fut { callable->get_future() };
-    const WorkUnit  work_unit {
-        WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
-    };
-
-    if (immediately && available_threads() == 0)
-        add_thread(1);
-
-    if (local_queue_)  {  // Is this one of the pool threads
-        const guard_type    guard { state_ };
-
-        local_queue_->push(work_unit);
-    }
-    else
-        global_queue_.push(work_unit);
-
-    if (timeout_flag_)
-        queue_timed_outs_();
-    return (return_fut);
-}
-
-// ----------------------------------------------------------------------------
-
-template<typename F, typename I, typename ... As>
-ThreadPool::loop_res_t<F, I, As ...>
-ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
-
-    using task_return_t =
-        std::invoke_result_t<std::decay_t<F>,
-                             std::decay_t<I>,
-                             std::decay_t<I>,
-                             std::decay_t<As> ...>;
-    using future_t = std::future<task_return_t>;
-
-    size_type   n { 0 };
-
-    if constexpr (std::is_integral<I>::value)
-        n = end - begin;
-    else
-        n = std::distance(begin, end);
-
-    const size_type         cap_thrs { capacity_threads() };
-    const size_type         block_size { n / cap_thrs };
-    std::vector<future_t>   ret;
-
-    ret.reserve(cap_thrs + 1);
-    for (size_type i = 0; i < n; i += block_size)  {
-        const size_type block_end {
-            ((i + block_size) > n) ? n : i + block_size
-        };
-
-        ret.push_back(dispatch(false,
-                               routine,
-                               begin + i,
-                               begin + block_end,
-                               std::forward<As>(args) ...));
-    }
-
-    return (ret);
-}
-
-// ----------------------------------------------------------------------------
-
-template<std::random_access_iterator I, std::size_t TH>
-void
-ThreadPool::parallel_sort(I begin, I end)  {
-
-    using value_type = typename std::iterator_traits<I>::value_type;
-
-    auto    compare = std::less<value_type>{ };
-
-    parallel_sort<I, decltype(compare), TH>(begin, end, std::move(compare));
-}
-
-// ----------------------------------------------------------------------------
-
-template<std::random_access_iterator I, typename P, std::size_t TH>
-void
-ThreadPool::parallel_sort(I begin, I end, P compare)  {
-
-    using value_type = typename std::iterator_traits<I>::value_type;
-    using fut_type = std::future<void>;
-
-    if (begin >= end) return;
-
-    const std::size_t   data_size = std::distance(begin, end);
-
-    if (data_size > 0)  {
-        auto                left_iter = begin;
-        auto                right_iter = end - 1;
-        bool                is_swapped_left = false;
-        bool                is_swapped_right = false;
-        const value_type    pivot = *begin;
-        auto                fwd_iter = begin + 1;
-
-        while (fwd_iter <= right_iter)  {
-            if (compare(*fwd_iter, pivot))  {
-                is_swapped_left = true;
-                std::iter_swap(left_iter, fwd_iter);
-                ++left_iter;
-                ++fwd_iter;
-            }
-            else if (compare(pivot, *fwd_iter))  {
-                is_swapped_right = true;
-                std::iter_swap(right_iter, fwd_iter);
-                --right_iter;
-            }
-            else ++fwd_iter;
-        }
-
-        const bool  do_left =
-            is_swapped_left && std::distance(begin, left_iter) > 0;
-        const bool  do_right =
-            is_swapped_right && std::distance(right_iter, end) > 0;
-
-        if (data_size >= TH)  {
-            fut_type    left_fut;
-            fut_type    right_fut;
-
-            if (do_left)
-                left_fut = dispatch(false,
-                                    &ThreadPool::parallel_sort<I, P, TH>,
-                                    this,
-                                    begin,
-                                    left_iter,
-                                    compare);
-            if (do_right)
-                right_fut = dispatch(false,
-                                     &ThreadPool::parallel_sort<I, P, TH>,
-                                     this,
-                                     right_iter + 1,
-                                     end,
-                                     compare);
-
-            if (do_left)
-                while (left_fut.wait_for(std::chrono::seconds(0)) ==
-                           std::future_status::timeout)
-                    run_task();
-            if (do_right)
-                while (right_fut.wait_for(std::chrono::seconds(0)) ==
-                           std::future_status::timeout)
-                    run_task();
-        }
-        else  {
-            if (do_left)
-                parallel_sort<I, P, TH>(begin, left_iter, compare);
-
-            if (do_right)
-                parallel_sort<I, P, TH>(right_iter + 1, end, compare);
-        }
-    }
-}
-
-// ----------------------------------------------------------------------------
-
-bool
+inline bool
 ThreadPool::add_thread(size_type thr_num)  {
 
     if (is_shutdown())
@@ -285,12 +88,12 @@ ThreadPool::add_thread(size_type thr_num)  {
                                  "Thread pool is shutdown.");
 
     if (thr_num < 0)  {
-        const size_type shutys { ::abs(thr_num) };
+        const size_type shutys { ::labs(thr_num) };
 
         if (shutys > capacity_threads())  {
             char    err[1024];
 
-            ::snprintf(err, 1023,
+            ::snprintf(err, sizeof(err) - 1,
                        "ThreadPool::add_thread(): Cannot subtract "
                        "'%ld' threads from the pool with capacity '%ld'",
                        shutys, capacity_threads());
@@ -320,6 +123,262 @@ ThreadPool::add_thread(size_type thr_num)  {
 
 // ----------------------------------------------------------------------------
 
+template<typename F, typename ... As>
+ThreadPool::dispatch_res_t<F, As ...>
+ThreadPool::dispatch(bool immediately, F &&routine, As && ... args)  {
+
+    if (is_shutdown() || (capacity_threads() == 0 && ! immediately))
+        throw std::runtime_error("ThreadPool::dispatch(): "
+                                 "Thread-pool has 0 thread capacity.");
+
+    using task_return_t =
+        std::invoke_result_t<std::decay_t<F>, std::decay_t<As> ...>;
+    using future_t = dispatch_res_t<F, As ...>;
+
+    auto            callable  {
+        std::make_shared<std::packaged_task<task_return_t()>>
+            (std::bind<task_return_t>(std::forward<F>(routine),
+                                      std::forward<As>(args) ...))
+    };
+    future_t        return_fut { callable->get_future() };
+    const WorkUnit  work_unit {
+        WORK_TYPE::_client_service_, [callable]() -> void { (*callable)(); }
+    };
+
+    if (immediately && available_threads() == 0)
+        add_thread(1);
+
+    if (local_queue_)  {  // Is this one of the pool threads
+        const guard_type    guard { state_ };
+
+        local_queue_->push(work_unit);
+    }
+    else
+        global_queue_.push(work_unit);
+
+    return (return_fut);
+}
+
+// ----------------------------------------------------------------------------
+
+template<typename F, typename I, typename ... As>
+ThreadPool::loop_res_t<F, I, As ...>
+ThreadPool::parallel_loop(I begin, I end, F &&routine, As && ... args)  {
+
+    using task_return_t =
+        std::invoke_result_t<std::decay_t<F>,
+                             std::decay_t<I>,
+                             std::decay_t<I>,
+                             std::decay_t<As> ...>;
+    using future_t = std::future<task_return_t>;
+
+    size_type   n { 0 };
+    bool        backward { false };
+
+    if constexpr (std::is_integral_v<I>)  {
+        if (begin > end)  {
+            n = begin - end;
+            backward = true;
+        }
+        else
+            n = end - begin;
+    }
+    else
+        n = std::distance(begin, end);
+
+    const size_type         cap_thrs { capacity_threads() };
+    const size_type         block_size { (n > cap_thrs) ? n / cap_thrs : n };
+    std::vector<future_t>   ret;
+
+    if (block_size == n)  {
+        ret.reserve(n);
+        if (backward)  {
+            for (size_type i = n - 1; i >= 0; --i)  {
+                ret.emplace_back(dispatch(false,
+                                          std::forward<F>(routine),
+                                              end + i,
+                                              end + i,
+                                              std::forward<As>(args) ...));
+            }
+        }
+        else  {
+            for (size_type i = 0; i < n; ++i)  {
+                ret.emplace_back(dispatch(false,
+                                          std::forward<F>(routine),
+                                              begin + i,
+                                              begin + (i + 1),
+                                              std::forward<As>(args) ...));
+            }
+        }
+    }
+    else  {
+        ret.reserve(cap_thrs + 1);
+        if (backward)  {
+            for (size_type i = n; i >= 0; i -= block_size)  {
+                size_type   block_end {
+                    ((i - block_size) <= 0) ? 0 : i - block_size
+                };
+
+                if (size_type((end + i) - (end + block_end + 1)) <
+                        (block_size - 1))
+                    block_end = -1;
+                ret.emplace_back(dispatch(false,
+                                          std::forward<F>(routine),
+                                              end + block_end + 1,
+                                              end + i,
+                                              std::forward<As>(args) ...));
+            }
+        }
+        else  {
+            for (size_type i = 0; i < n; i += block_size)  {
+                const size_type block_end {
+                    ((i + block_size) > n) ? n : i + block_size
+                };
+
+                ret.emplace_back(dispatch(false,
+                                          std::forward<F>(routine),
+                                              begin + i,
+                                              begin + block_end,
+                                              std::forward<As>(args) ...));
+            }
+        }
+    }
+
+    return (ret);
+}
+
+// ----------------------------------------------------------------------------
+
+template<typename F, typename I1, typename I2, typename ... As>
+ThreadPool::loop2_res_t<F, I1, I2, As ...>
+ThreadPool::parallel_loop2(I1 begin1, I1 end1, I2 begin2, I2 end2,
+                           F &&routine, As && ... args)  {
+
+    using task_return_t =
+        std::invoke_result_t<std::decay_t<F>,
+                             std::decay_t<I1>,
+                             std::decay_t<I1>,
+                             std::decay_t<I2>,
+                             std::decay_t<As> ...>;
+    using future_t = std::future<task_return_t>;
+
+    size_type   n { 0 };
+
+    if constexpr (std::is_integral<I1>::value)
+        n = std::min(end1 - begin1, end2 - begin2);
+    else
+        n = std::min(std::distance(begin1, end1), std::distance(begin2, end2));
+
+    const size_type         cap_thrs { capacity_threads() };
+    const size_type         block_size { (n > cap_thrs) ? n / cap_thrs : n };
+    std::vector<future_t>   ret;
+
+    if (block_size == n)  {
+        ret.reserve(n);
+        for (size_type i = 0; i < n; ++i)
+            ret.emplace_back(dispatch(false,
+                                      std::forward<F>(routine),
+                                          begin1 + i,
+                                          begin1 + (i + 1),
+                                          begin2 + i,
+                                          std::forward<As>(args) ...));
+    }
+    else  {
+        ret.reserve(cap_thrs + 1);
+        for (size_type i = 0; i < n; i += block_size)  {
+            const size_type block_end {
+                ((i + block_size) > n) ? n : i + block_size
+            };
+
+            ret.emplace_back(dispatch(false,
+                                      std::forward<F>(routine),
+                                          begin1 + i,
+                                          begin1 + block_end,
+                                          begin2 + i,
+                                          std::forward<As>(args) ...));
+        }
+    }
+
+    return (ret);
+}
+
+// ----------------------------------------------------------------------------
+
+template<std::random_access_iterator I, long TH>
+void
+ThreadPool::parallel_sort(const I begin, const I end)  {
+
+    using value_type = typename std::iterator_traits<I>::value_type;
+
+    auto    compare = std::less<value_type>{ };
+
+    parallel_sort<I, decltype(compare), TH>(begin, end, std::move(compare));
+}
+
+// ----------------------------------------------------------------------------
+
+template<std::random_access_iterator I, typename P>
+static inline I
+_median_of_three_(I a, I b, I c, P &compare) {
+
+    if (compare(*b, *a))  std::swap(a, b);
+    if (compare(*c, *b))  std::swap(b, c);
+    if (compare(*b, *a))  std::swap(a, b);
+    return (b); // *a <= *b <= *c under compare
+}
+
+// --------------------------------------
+
+template<std::random_access_iterator I, typename P, long TH>
+void
+ThreadPool::parallel_sort(const I begin, const I end, P compare)  {
+
+    if (begin >= end) return;
+
+    const size_type data_size = std::distance(begin, end);
+
+    if (data_size <= TH)  {
+        std::sort(begin, end, compare);
+        return;
+    }
+
+    // Pivot selection (median‑of‑three)
+    //
+    auto        mid = begin + (data_size / 2);
+    auto        pivot_it = _median_of_three_(begin, mid, end - 1, compare);
+    const auto  pivot = *pivot_it;
+
+    std::iter_swap(pivot_it, end - 1);  // Move pivot to end ‑ 1
+
+    auto    cut =
+        std::ranges::partition(begin, end - 1,
+                               [&pivot, &compare](const auto &x) -> bool {
+                                   return (compare(x, pivot));
+                               });
+
+    std::iter_swap(cut.begin(), end - 1);  // Restore pivot
+
+    auto    lf = dispatch(false,
+                          &ThreadPool::parallel_sort<I, P, TH>,
+                          this,
+                          begin,
+                          cut.begin(),
+                          compare);
+    auto    rf = dispatch(false,
+                          &ThreadPool::parallel_sort<I, P, TH>,
+                          this,
+                          cut.begin() + 1,
+                          end,
+                          compare);
+
+    while (lf.wait_for(std::chrono::seconds(0)) == std::future_status::timeout)
+        run_task();
+    while (rf.wait_for(std::chrono::seconds(0)) == std::future_status::timeout)
+        run_task();
+}
+
+// ----------------------------------------------------------------------------
+
 void
 ThreadPool::attach(thread_type &&this_thr)  {
 
@@ -341,7 +400,7 @@ ThreadPool::attach(thread_type &&this_thr)  {
 
 // ----------------------------------------------------------------------------
 
-ThreadPool::size_type
+inline ThreadPool::size_type
 ThreadPool::available_threads() const noexcept  {
 
     return (available_threads_.load(std::memory_order_relaxed));
@@ -349,7 +408,7 @@ ThreadPool::available_threads() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
-ThreadPool::size_type
+inline ThreadPool::size_type
 ThreadPool::capacity_threads() const noexcept  {
 
     return (capacity_threads_.load(std::memory_order_relaxed));
@@ -357,7 +416,7 @@ ThreadPool::capacity_threads() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool
+inline bool
 ThreadPool::is_shutdown() const noexcept  {
 
     return (shutdown_flag_.load(std::memory_order_relaxed));
@@ -365,7 +424,7 @@ ThreadPool::is_shutdown() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
-ThreadPool::size_type
+inline ThreadPool::size_type
 ThreadPool::pending_tasks() const noexcept  {
 
     return (global_queue_.size());
@@ -373,7 +432,7 @@ ThreadPool::pending_tasks() const noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool
+inline bool
 ThreadPool::shutdown() noexcept  {
 
     bool    expected { false };
@@ -395,19 +454,19 @@ ThreadPool::shutdown() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-ThreadPool::WorkUnit
+inline ThreadPool::WorkUnit
 ThreadPool::get_one_local_task_() noexcept  {
 
     WorkUnit            work_unit;
     const guard_type    guard { state_ };
 
-    if (local_queue_ && local_queue_->empty() == false)  {
+    if (local_queue_ && (! local_queue_->empty()))  {
         work_unit = local_queue_->front();
         local_queue_->pop();
     }
     else  {  // Try to steal tasks from other queues
         for (auto &q : local_queues_)
-            if (&q != local_queue_ && q.empty() == false)  {
+            if (! q.empty())  {
                 work_unit = q.front();
                 q.pop();
                 break;
@@ -418,7 +477,7 @@ ThreadPool::get_one_local_task_() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool
+inline bool
 ThreadPool::run_task() noexcept  {
 
     WorkUnit    work_unit = get_one_local_task_();
@@ -440,7 +499,7 @@ ThreadPool::run_task() noexcept  {
 
 // ----------------------------------------------------------------------------
 
-bool
+inline bool
 ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
     if (is_shutdown())
@@ -448,8 +507,7 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
 
     pre_conditioner_.execute();
 
-    time_type   last_busy_time { timeout_flag_ ? ::time(nullptr) : 0 };
-    auto        iter = local_queues_.begin();
+    auto    iter = local_queues_.begin();
 
     std::advance(iter, local_q_idx);
     local_queue_ = &(*iter);
@@ -457,30 +515,22 @@ ThreadPool::thread_routine_(size_type local_q_idx) noexcept  {
     while (true)  {
         ++available_threads_;
 
-        WorkUnit    work_unit = get_one_local_task_();
+        size_type   counter { 0 };
 
-        if (work_unit.work_type == WORK_TYPE::_undefined_)  {
-            const auto  opt_ret = global_queue_.pop_front(true); // Wait
+        while (++counter < 80)  run_task();
 
-            if (opt_ret.has_value())
-                work_unit = opt_ret.value();
-        }
+        WorkUnit    work_unit { };
+        const auto  opt_ret = global_queue_.pop_front(true); // Wait
+
+        if (opt_ret.has_value())
+            work_unit = opt_ret.value();
 
         --available_threads_;
 
-        if (work_unit.work_type == WORK_TYPE::_terminate_)  {
-            break;
-        }
-        else if (work_unit.work_type == WORK_TYPE::_timeout_)  {
-            if (timeout_flag_ &&
-                ((::time(nullptr) - last_busy_time) >= timeout_time_))
-                break;
-        }
-        else if (work_unit.work_type == WORK_TYPE::_client_service_)  {
-            if (timeout_flag_)
-                last_busy_time = ::time(nullptr);
+        if (work_unit.work_type == WORK_TYPE::_client_service_)
             (work_unit.func)();  // Execute the callable
-        }
+        else if (work_unit.work_type == WORK_TYPE::_terminate_)
+            break;
     }
     --capacity_threads_;
     local_queue_ = nullptr;
