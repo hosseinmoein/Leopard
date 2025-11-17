@@ -33,7 +33,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 This is a light-weight C++ Thread Pool that allows running any callable similar to `std::async` interface. It has both global and local queues and employs a work-stealing algorithm.<BR>
 
-## <a href="https://htmlpreview.github.io/?https://github.com/hosseinmoein/Leopard/blob/master/docs/HTML/Leopard.html" target="_blank"><B>API Reference with code samples</B></a>
+## <a href="https://hosseinmoein.github.io/Leopard/docs/HTML/Leopard.html" target="_blank"><B>API Reference with code samples</B></a>
+
 
 ## Code Sample<BR>
 
